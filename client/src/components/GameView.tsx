@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { createGame, destroyGame, makeDefaultBridge } from "../game/createGame";
+import {
+  createGame,
+  destroyGame,
+  makeDefaultBridge,
+  onAreaChange,
+} from "../game/createGame";
 import { GameBridge } from "../game/bridge";
 import { Hud } from "./Hud";
 import { BackpackOverlay } from "./BackpackOverlay";
@@ -20,12 +25,11 @@ export function GameView() {
     if (!containerRef.current) return;
     const b = makeDefaultBridge();
     const game = createGame(containerRef.current, b);
-    const scene = game.scene.getScene("MainScene");
     const onArea = (label: string) => setAreaLabel(label);
-    scene.events.on("area-change", onArea);
+    const off = onAreaChange(game, onArea);
     setBridge(b);
     return () => {
-      scene.events.off("area-change", onArea);
+      off();
       destroyGame(game);
     };
   }, []);

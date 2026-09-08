@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import { MainScene, AREA_CHANGE_EVENT } from "./MainScene";
-import { GameBridge } from "./bridge";
+import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
 import { DEFAULT_BINDINGS, makeAudioSettings } from "shared";
 
 export function createGame(
@@ -22,10 +22,7 @@ export function createGame(
     },
     scene: [MainScene],
   });
-
-  const scene = game.scene.getScene("MainScene") as MainScene;
-  scene.constructorBridge(bridge);
-
+  game.registry.set(GAME_BRIDGE_KEY, bridge);
   return game;
 }
 
@@ -36,13 +33,46 @@ export function makeDefaultBridge(): GameBridge {
   });
 }
 
+/**
+ * Subscribes to area-change events once the scene has booted.
+ * Returns an unsubscribe function. Safe before the scene is running.
+ */
 export function onAreaChange(
   game: Phaser.Game,
   listener: (label: string) => void,
 ): () => void {
-  const scene = game.scene.getScene("MainScene") as Phaser.Scene;
-  scene.events.on(AREA_CHANGE_EVENT, listener);
-  return () => scene.events.off(AREA_CHANGE_EVENT, listener);
+  let scene = game.scene.getScene("MainScene") as Phaser.Scene | null;
+  if (scene) {
+    attachToScene(scene, listener);
+    return () => detachFromScene(scene!, listener);
+  }
+  // Scene not yet registered; wait for READY then attach.
+  const onReady = () => {
+    scene = game.scene.getScene("MainScene") as Phaser.Scene | null;
+    if (scene) attachToScene(scene, listener);
+  };
+  game.events.on(Phaser.Scenes.Events.READY, onReady);
+  return () => {
+    game.events.off(Phaser.Scenes.Events.READY, onReady);
+    if (scene) detachFromScene(scene, listener);
+  };
+}
+
+function attachToScene(scene: Phaser.Scene, listener: (label: string) => void): void {
+  if (scene.sys.settings.status === Phaser.Scenes.RUNNING) {
+    scene.events.on(AREA_CHANGE_EVENT, listener);
+    return;
+  }
+  scene.events.once(Phaser.Scenes.Events.READY, () =>
+    scene.events.on(AREA_CHANGE_EVENT, listener),
+  );
+}
+
+function detachFromScene(
+  scene: Phaser.Scene,
+  listener: (label: string) => void,
+): void {
+  scene.events.off(AREA_CHANGE_EVENT, listener);
 }
 
 export function destroyGame(game: Phaser.Game): void {

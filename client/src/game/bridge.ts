@@ -60,6 +60,9 @@ export interface CommandResult {
   reason?: string;
 }
 
+/** Registry key used to hand the GameBridge to the Phaser scene before boot. */
+export const GAME_BRIDGE_KEY = "game-bridge";
+
 /**
  * Thin state hub between the React overlay and the Phaser scene.
  * React holds UI flags + read-only snapshots; the scene owns the

@@ -25,7 +25,12 @@ import {
   type Bindings,
   type Dish,
 } from "shared";
-import { GameBridge, type BridgeCommand, type OrderView } from "./bridge";
+import {
+  GameBridge,
+  GAME_BRIDGE_KEY,
+  type BridgeCommand,
+  type OrderView,
+} from "./bridge";
 
 const AREA_COLORS: Record<Area["kind"], number> = {
   spawn: 0x7ec850,
@@ -96,6 +101,13 @@ export class MainScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Bridge is attached by createGame via the game registry before boot.
+    const registered = this.game.registry.get(GAME_BRIDGE_KEY) as
+      | GameBridge
+      | undefined;
+    if (registered) {
+      this.bridge = registered;
+    }
     this.physics.world.setBounds(
       WORLD_BOUNDS.x,
       WORLD_BOUNDS.y,
