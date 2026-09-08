@@ -2,7 +2,6 @@ import Phaser from "phaser";
 import {
   AREAS,
   areaAt,
-  clampToWorld,
   WORLD_BOUNDS,
   type Area,
   type ForestState,
@@ -498,12 +497,6 @@ export class MainScene extends Phaser.Scene {
     }
     this.playerBody.setVelocity(vx, vy);
 
-    const pos = clampToWorld({
-      x: this.playerBody.position.x + this.playerBody.halfWidth,
-      y: this.playerBody.position.y + this.playerBody.halfHeight,
-    });
-    this.playerBody.reset(pos.x, pos.y);
-
     if (Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
       this.pressInteract();
     }
@@ -523,7 +516,7 @@ export class MainScene extends Phaser.Scene {
     this.renderTrees();
     this.tickOrderDelivery();
 
-    const area = areaAt(pos);
+    const area = areaAt({ x: this.player.x, y: this.player.y });
     const label = area ? area.label : "野外地带";
     if (label !== this.lastAreaLabel) {
       this.lastAreaLabel = label;
