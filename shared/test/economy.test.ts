@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   addLogs,
+  buyPhone,
   canAfford,
   makeInventory,
   sellLogs,
   spendMoney,
   WOOD_PRICE_PER_LOG,
+  PHONE_PRICE,
 } from "../src/economy";
 
 describe("economy", () => {
@@ -50,5 +52,24 @@ describe("economy", () => {
     expect(inv.money).toBe(40);
     expect(spendMoney(inv, 50)).toBe(false);
     expect(canAfford(inv, 50)).toBe(false);
+  });
+
+  it("buys a phone when the player has enough money", () => {
+    const inv = makeInventory({ money: PHONE_PRICE });
+    expect(buyPhone(inv)).toBe(true);
+    expect(inv.hasPhone).toBe(true);
+    expect(inv.money).toBe(0);
+  });
+
+  it("cannot buy a phone twice", () => {
+    const inv = makeInventory({ money: 500, hasPhone: true });
+    expect(buyPhone(inv)).toBe(false);
+    expect(inv.money).toBe(500);
+  });
+
+  it("cannot buy a phone without enough money", () => {
+    const inv = makeInventory({ money: PHONE_PRICE - 1 });
+    expect(buyPhone(inv)).toBe(false);
+    expect(inv.hasPhone).toBe(false);
   });
 });

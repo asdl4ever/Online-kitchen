@@ -13,6 +13,7 @@ import {
   tickForest,
   addLogs,
   sellLogs,
+  buyPhone,
   makeInventory,
   placeOrder,
   getDish,
@@ -43,6 +44,7 @@ export interface Mechanics {
 
 const LUMBER_DEPOT_POS = { x: -400, y: -140 };
 const COUNTER_POS = { x: -40, y: 310 };
+const PHONE_STORE_POS = { x: 340, y: 350 };
 const TABLE_POSITIONS = [
   { x: -20, y: 360 },
   { x: 60, y: 360 },
@@ -52,6 +54,7 @@ const TABLE_POSITIONS = [
 type PendingInteract =
   | { kind: "menu" }
   | { kind: "depot" }
+  | { kind: "phone-shop" }
   | { kind: "seat"; tableIndex: number }
   | null;
 
@@ -180,6 +183,7 @@ export class MainScene extends Phaser.Scene {
   private drawFacilities(): void {
     this.drawShopMarker(LUMBER_DEPOT_POS, "🏪", "木材店");
     this.drawShopMarker(COUNTER_POS, "🧑‍🍳", "点餐台");
+    this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店");
     TABLE_POSITIONS.forEach((pos, i) => {
       this.add.rectangle(pos.x, pos.y, 34, 34, 0x9b6d4c, 0.95);
       this.add
@@ -218,6 +222,11 @@ export class MainScene extends Phaser.Scene {
     this.bridge.on("close-menu", handler);
     this.bridge.on("open-depot", handler);
     this.bridge.on("close-depot", handler);
+    this.bridge.on("open-phone-shop", handler);
+    this.bridge.on("close-phone-shop", handler);
+    this.bridge.on("buy-phone", handler);
+    this.bridge.on("open-phone-app", handler);
+    this.bridge.on("close-phone-app", handler);
     this.bridge.on("toggle-collection", handler);
     this.bridge.on("order-food", handler);
     this.bridge.on("sell-all-logs", handler);
@@ -247,6 +256,35 @@ export class MainScene extends Phaser.Scene {
       case "close-depot":
         this.bridge.patch({ depotOpen: false });
         break;
+      case "open-phone-shop":
+        this.bridge.patch({ phoneShopOpen: true });
+        break;
+      case "close-phone-shop":
+        this.bridge.patch({ phoneShopOpen: false });
+        break;
+      case "buy-phone": {
+        const bought = buyPhone(this.inventory);
+        this.publishSnapshot();
+        if (bought) {
+          this.bridge.patch({ phoneShopOpen: false });
+          this.bridge.showToast("已购入手机，可随时远程点餐", "📱");
+        } else if (this.inventory.hasPhone) {
+          this.bridge.showToast("你已经有手机啦", "📱");
+        } else {
+          this.bridge.showToast("钱不够买手机", "😢");
+        }
+        break;
+      }
+      case "open-phone-app":
+        if (!this.inventory.hasPhone) {
+          this.bridge.showToast("还没有手机，去手机店买一部吧", "📵");
+          break;
+        }
+        this.bridge.patch({ phoneAppOpen: !this.bridge.getSnapshot().phoneAppOpen });
+        break;
+      case "close-phone-app":
+        this.bridge.patch({ phoneAppOpen: false });
+        break;
       case "toggle-collection":
         this.bridge.patch({
           collectionOpen: !this.bridge.getSnapshot().collectionOpen,
@@ -267,9 +305,15 @@ export class MainScene extends Phaser.Scene {
             "😢",
           );
         } else {
-          this.bridge.patch({ menuOpen: false });
+          const wasPhone = this.bridge.getSnapshot().phoneAppOpen;
+          this.bridge.patch({
+            menuOpen: false,
+            phoneAppOpen: false,
+          });
           this.bridge.showToast(
-            `已下单 ${dish?.name ?? ""}，请就座等待`,
+            wasPhone
+              ? `手机下单成功：${dish?.name ?? ""}，请就座等待`
+              : `已下单 ${dish?.name ?? ""}，请就座等待`,
             "🧾",
           );
         }
@@ -345,6 +389,8 @@ export class MainScene extends Phaser.Scene {
       this.bridge.patch({ menuOpen: true });
     } else if (this.pendingInteract?.kind === "depot") {
       this.bridge.patch({ depotOpen: true });
+    } else if (this.pendingInteract?.kind === "phone-shop") {
+      this.bridge.patch({ phoneShopOpen: true });
     } else if (this.pendingInteract?.kind === "seat") {
       this.toggleSeat();
     }
@@ -358,6 +404,7 @@ export class MainScene extends Phaser.Scene {
 
     const nearCounter = dist(pos, COUNTER_POS) <= range;
     const nearDepot = dist(pos, LUMBER_DEPOT_POS) <= range;
+    const nearPhoneShop = dist(pos, PHONE_STORE_POS) <= range;
     let nearTable: number | null = null;
     TABLE_POSITIONS.forEach((t, i) => {
       if (dist(pos, t) <= range) nearTable = i;
@@ -371,6 +418,9 @@ export class MainScene extends Phaser.Scene {
     } else if (nearDepot) {
       next = { kind: "depot" };
       prompt = "按 F 出售木材";
+    } else if (nearPhoneShop) {
+      next = { kind: "phone-shop" };
+      prompt = this.inventory.hasPhone ? "按 F 进入手机店" : "按 F 买手机";
     } else if (nearTable !== null) {
       next = { kind: "seat", tableIndex: nearTable };
       prompt = this.seatedTable !== null ? "按 F 起身" : "按 F 入座";
@@ -552,6 +602,7 @@ export class MainScene extends Phaser.Scene {
     this.bridge.updateSnapshot({
       logs: this.inventory.logs,
       money: this.inventory.money,
+      hasPhone: this.inventory.hasPhone,
       orders,
       collection: Object.values(this.collection.entries),
     });

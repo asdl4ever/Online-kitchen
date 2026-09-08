@@ -1,11 +1,13 @@
 export interface Inventory {
   logs: number;
   money: number;
+  hasPhone: boolean;
 }
 
 export const STARTING_LOGS = 0;
 export const STARTING_MONEY = 0;
 export const WOOD_PRICE_PER_LOG = 10;
+export const PHONE_PRICE = 100;
 
 export function makeInventory(
   overrides: Partial<Inventory> = {},
@@ -13,7 +15,15 @@ export function makeInventory(
   return {
     logs: overrides.logs ?? STARTING_LOGS,
     money: overrides.money ?? STARTING_MONEY,
+    hasPhone: overrides.hasPhone ?? false,
   };
+}
+
+export function buyPhone(inv: Inventory): boolean {
+  if (inv.hasPhone) return false;
+  if (!spendMoney(inv, PHONE_PRICE)) return false;
+  inv.hasPhone = true;
+  return true;
 }
 
 export function addLogs(inv: Inventory, amount: number): void {

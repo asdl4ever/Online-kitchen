@@ -29,9 +29,19 @@ export function Hud({
         >
           🍴 {done}/{DISHES.length}
         </button>
+        {state.hasPhone && (
+          <button
+            className="chip chip-btn chip-phone"
+            onClick={() => bridge.send({ type: "open-phone-app" })}
+            title="打开餐厅 App 远程点餐"
+          >
+            📲 点餐
+          </button>
+        )}
       </div>
       <div className="hud-help">
         <p>按 {prettyKey(bindKey)} 打开背包 · Esc 设置</p>
+        {!state.hasPhone && <p className="hud-tip">去 📱 手机店买手机，可远程点餐</p>}
         {state.prompt && <p className="hud-prompt">{state.prompt}</p>}
       </div>
     </div>

@@ -5,6 +5,8 @@ import { Hud } from "./Hud";
 import { BackpackOverlay } from "./BackpackOverlay";
 import { MenuOverlay } from "./MenuOverlay";
 import { DepotOverlay } from "./DepotOverlay";
+import { PhoneShopOverlay } from "./PhoneShopOverlay";
+import { PhoneAppOverlay } from "./PhoneAppOverlay";
 import { CollectionOverlay } from "./CollectionOverlay";
 import { SettingsOverlay } from "./SettingsOverlay";
 import { Toast } from "./Toast";
@@ -37,6 +39,8 @@ export function GameView() {
           <BackpackOverlay bridge={bridge} />
           <MenuOverlay bridge={bridge} />
           <DepotOverlay bridge={bridge} />
+          <PhoneShopOverlay bridge={bridge} />
+          <PhoneAppOverlay bridge={bridge} />
           <CollectionOverlay bridge={bridge} />
           <SettingsOverlay bridge={bridge} />
           <Toast bridge={bridge} />

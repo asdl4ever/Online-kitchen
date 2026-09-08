@@ -72,6 +72,20 @@ body,
   background: rgba(0, 0, 0, 0.7);
 }
 
+.chip-phone {
+  background: rgba(25, 118, 210, 0.85);
+}
+
+.chip-phone:hover {
+  background: rgba(21, 101, 192, 1);
+}
+
+.hud-tip {
+  margin-top: 4px !important;
+  color: #b3d9ff;
+  font-size: 12px;
+}
+
 .hud-help {
   background: rgba(0, 0, 0, 0.45);
   color: #fff;

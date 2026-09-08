@@ -20,9 +20,12 @@ export interface GameUiState {
   settingsOpen: boolean;
   menuOpen: boolean;
   depotOpen: boolean;
+  phoneShopOpen: boolean;
+  phoneAppOpen: boolean;
   collectionOpen: boolean;
   logs: number;
   money: number;
+  hasPhone: boolean;
   orders: OrderView[];
   collection: FoodEntry[];
   seated: boolean;
@@ -38,6 +41,11 @@ export type BridgeCommand =
   | { type: "close-menu" }
   | { type: "open-depot" }
   | { type: "close-depot" }
+  | { type: "open-phone-shop" }
+  | { type: "close-phone-shop" }
+  | { type: "buy-phone" }
+  | { type: "open-phone-app" }
+  | { type: "close-phone-app" }
   | { type: "toggle-collection" }
   | { type: "order-food"; dishId: string }
   | { type: "sell-all-logs" }
@@ -73,9 +81,12 @@ export class GameBridge {
       settingsOpen: false,
       menuOpen: false,
       depotOpen: false,
+      phoneShopOpen: false,
+      phoneAppOpen: false,
       collectionOpen: false,
       logs: 0,
       money: 0,
+      hasPhone: false,
       orders: [],
       collection: [],
       seated: false,
