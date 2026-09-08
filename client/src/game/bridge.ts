@@ -14,6 +14,9 @@ export interface OrderView {
   readyAt: number;
 }
 
+export type HotbarItem = "axe" | null;
+export const HOTBAR_SIZE = 10;
+
 export interface GameUiState {
   prompt: string | null;
   inventoryOpen: boolean;
@@ -32,6 +35,8 @@ export interface GameUiState {
   toast: { id: number; text: string; emoji?: string } | null;
   bindings: Bindings;
   audio: AudioSettings;
+  hotbar: HotbarItem[];
+  selectedSlot: number;
 }
 
 export type BridgeCommand =
@@ -53,6 +58,7 @@ export type BridgeCommand =
   | { type: "press-interact" }
   | { type: "set-audio"; audio: AudioSettings }
   | { type: "rebind"; action: string; key: string }
+  | { type: "select-slot"; index: number }
   | { type: "click-position"; x: number; y: number };
 
 export interface CommandResult {
@@ -96,6 +102,12 @@ export class GameBridge {
       toast: null,
       bindings: initial.bindings,
       audio: initial.audio,
+      hotbar: (() => {
+        const slots: HotbarItem[] = Array(HOTBAR_SIZE).fill(null);
+        slots[0] = "axe";
+        return slots;
+      })(),
+      selectedSlot: 0,
     };
   }
 

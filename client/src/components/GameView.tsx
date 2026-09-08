@@ -15,6 +15,7 @@ import { PhoneAppOverlay } from "./PhoneAppOverlay";
 import { CollectionOverlay } from "./CollectionOverlay";
 import { SettingsOverlay } from "./SettingsOverlay";
 import { Toast } from "./Toast";
+import { Hotbar } from "./Hotbar";
 
 export function GameView() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -40,6 +41,7 @@ export function GameView() {
       {bridge && (
         <>
           <Hud bridge={bridge} areaLabel={areaLabel} />
+          <Hotbar bridge={bridge} />
           <BackpackOverlay bridge={bridge} />
           <MenuOverlay bridge={bridge} />
           <DepotOverlay bridge={bridge} />

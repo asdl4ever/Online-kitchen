@@ -8,7 +8,7 @@ describe("client area mapping", () => {
   });
 
   it("maps the forest position used by the scene to the forest area", () => {
-    const area = areaAt({ x: 400, y: -300 });
+    const area = areaAt({ x: 650, y: -500 });
     expect(area?.kind).toBe("forest");
   });
 });

@@ -1,4 +1,4 @@
-import type { Vec2 } from "./types";
+import type { Rect, Vec2 } from "./types";
 
 export type TreeState = "standing" | "stump";
 
@@ -72,4 +72,84 @@ export function scheduleRegrow(tree: Tree, nowSeconds: number): void {
   if (tree.state === "stump") {
     tree.regrowAt = nowSeconds + tree.regrowSeconds;
   }
+}
+
+/** Deterministic PRNG (mulberry32) so world layouts are stable across runs. */
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export interface ForestGenOptions {
+  seed?: number;
+  count?: number;
+  minDistance?: number;
+  clusters?: number;
+}
+
+/**
+ * Generates a naturally scattered forest: a few cluster centers with
+ * gaussian-spread trees, rejecting positions that crowd existing ones.
+ * Deterministic for a given seed.
+ */
+export function generateForestTrees(
+  area: Rect,
+  options: ForestGenOptions = {},
+): Vec2[] {
+  const seed = options.seed ?? 1337;
+  const count = options.count ?? 30;
+  const minDistance = options.minDistance ?? 44;
+  const clusters = options.clusters ?? 3;
+
+  const rand = mulberry32(seed);
+  const points: Vec2[] = [];
+
+  const centers: Vec2[] = [];
+  for (let i = 0; i < clusters; i++) {
+    centers.push({
+      x: area.x + area.width * (0.2 + rand() * 0.6),
+      y: area.y + area.height * (0.2 + rand() * 0.6),
+    });
+  }
+
+  const spreadX = area.width * 0.16;
+  const spreadY = area.height * 0.16;
+  const maxAttempts = count * 60;
+
+  for (let i = 0; i < count; i++) {
+    let placed = false;
+    for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+      const center = centers[Math.floor(rand() * centers.length)];
+      // Box-Muller gaussian spread around the cluster center.
+      const u1 = Math.max(rand(), 1e-9);
+      const u2 = rand();
+      const g = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      const x = center.x + g * spreadX;
+      const u3 = Math.max(rand(), 1e-9);
+      const u4 = rand();
+      const g2 = Math.sqrt(-2 * Math.log(u3)) * Math.cos(2 * Math.PI * u4);
+      const y = center.y + g2 * spreadY;
+
+      if (x < area.x + 12 || x > area.x + area.width - 12) continue;
+      if (y < area.y + 12 || y > area.y + area.height - 12) continue;
+
+      // Crowding: allow a relaxed distance after many attempts so the
+      // forest always fills even in tight areas.
+      const required = attempt > maxAttempts * 0.7 ? minDistance * 0.55 : minDistance;
+      const crowded = points.some(
+        (p) => Math.hypot(p.x - x, p.y - y) < required,
+      );
+      if (crowded) continue;
+
+      points.push({ x, y });
+      placed = true;
+    }
+  }
+  return points;
 }

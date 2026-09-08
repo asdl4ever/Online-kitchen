@@ -15,10 +15,10 @@ export interface Area {
 }
 
 export const WORLD_BOUNDS: Rect = {
-  x: -600,
-  y: -600,
-  width: 1200,
-  height: 1200,
+  x: -900,
+  y: -700,
+  width: 1800,
+  height: 1400,
 };
 
 export const AREAS: Area[] = [
@@ -32,7 +32,7 @@ export const AREAS: Area[] = [
     id: "forest",
     kind: "forest",
     label: "树林",
-    bounds: { x: 300, y: -500, width: 250, height: 400 },
+    bounds: { x: 520, y: -660, width: 330, height: 280 },
   },
   {
     id: "lumber-yard",

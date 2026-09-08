@@ -9,7 +9,7 @@ describe("clampToWorld", () => {
   it("clamps positions beyond the northern-east corner", () => {
     const result = clampToWorld({ x: 9999, y: -9999 });
     expect(result.x).toBe(WORLD_BOUNDS.x + WORLD_BOUNDS.width);
-    expect(result.y).toBe(WORLD_BOUNDS.x); // y is clamped to top edge = WORLD_BOUNDS.y
+    expect(result.y).toBe(WORLD_BOUNDS.y); // y is clamped to the top edge
   });
 
   it("clamps positions beyond the southern-west corner", () => {
@@ -26,7 +26,7 @@ describe("areaAt", () => {
   });
 
   it("finds the forest area", () => {
-    const area = areaAt({ x: 400, y: -300 });
+    const area = areaAt({ x: 650, y: -500 });
     expect(area?.kind).toBe("forest");
   });
 

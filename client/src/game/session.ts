@@ -5,6 +5,7 @@ import {
   addLogs,
   buyPhone,
   chopTree,
+  generateForestTrees,
   getDish,
   makeFoodCollection,
   makeInventory,
@@ -39,26 +40,15 @@ export const CHOP_DPS = 5;
 
 function makeForestTrees(): ForestState["trees"] {
   const forestArea = AREAS.find((a) => a.kind === "forest")!;
-  const cols = 5;
-  const rows = 5;
-  const spacingX = 46;
-  const spacingY = 66;
-  const startX = forestArea.bounds.x + 30;
-  const startY = forestArea.bounds.y + 50;
-  const trees: ForestState["trees"] = [];
-  let idx = 0;
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const offset = r % 2 === 0 ? 0 : spacingX / 2;
-      const x = startX + c * spacingX + offset;
-      const y = startY + r * spacingY;
-      trees.push(
-        makeTree(`tree-${idx}`, { x, y }, { maxHp: 6, logDrop: 1, regrowSeconds: 12 }),
-      );
-      idx += 1;
-    }
-  }
-  return trees;
+  const points = generateForestTrees(forestArea.bounds, {
+    seed: 20260908,
+    count: 32,
+    minDistance: 46,
+    clusters: 4,
+  });
+  return points.map((p, i) =>
+    makeTree(`tree-${i}`, p, { maxHp: 6, logDrop: 1, regrowSeconds: 12 }),
+  );
 }
 
 /**
@@ -243,6 +233,7 @@ export class GameSession {
       "press-interact",
       "set-audio",
       "rebind",
+      "select-slot",
     ] as const) {
       this.bridge.on(type, handler);
     }
@@ -313,6 +304,11 @@ export class GameSession {
           key: c.key,
         });
         this.bridge.patch({ bindings: result.bindings });
+        break;
+      }
+      case "select-slot": {
+        const index = Math.max(0, Math.min(9, Math.floor(c.index)));
+        this.bridge.patch({ selectedSlot: index });
         break;
       }
     }

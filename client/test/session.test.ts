@@ -97,4 +97,23 @@ describe("GameSession", () => {
     expect(s.orders).toHaveLength(1);
     expect(getDish("noodles")!.price).toBe(35);
   });
+
+  it("starts with an axe in slot 1 of a 10-slot hotbar", () => {
+    const s = makeSession();
+    const ui = s.bridge.getSnapshot();
+    expect(ui.hotbar).toHaveLength(10);
+    expect(ui.hotbar[0]).toBe("axe");
+    expect(ui.hotbar.slice(1).every((i) => i === null)).toBe(true);
+    expect(ui.selectedSlot).toBe(0);
+  });
+
+  it("selects hotbar slots via commands and clamps the index", () => {
+    const s = makeSession();
+    s.bridge.send({ type: "select-slot", index: 4 });
+    expect(s.bridge.getSnapshot().selectedSlot).toBe(4);
+    s.bridge.send({ type: "select-slot", index: -5 });
+    expect(s.bridge.getSnapshot().selectedSlot).toBe(0);
+    s.bridge.send({ type: "select-slot", index: 99 });
+    expect(s.bridge.getSnapshot().selectedSlot).toBe(9);
+  });
 });

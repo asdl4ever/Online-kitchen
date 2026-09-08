@@ -32,6 +32,13 @@ const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
   phoneStore: "📱",
 };
 
+/** Areas whose name already shows on a building sign (no area plaque). */
+const AREAS_WITH_BUILDING_SIGN: Area["kind"][] = [
+  "lumberYard",
+  "restaurant",
+  "phoneStore",
+];
+
 export const AREA_CHANGE_EVENT = "area-change";
 
 const LUMBER_BUILDING = { x: -400, y: -140 };
@@ -118,11 +125,52 @@ export class MainScene extends Phaser.Scene {
         AREA_COLORS[area.kind],
         0.8,
       );
-      this.drawAreaPlaque(area);
+      // Buildings already carry a sign with the same name — skip those
+      // areas to avoid duplicated titles.
+      if (!AREAS_WITH_BUILDING_SIGN.includes(area.kind)) {
+        this.drawAreaPlaque(area);
+      }
     }
 
+    this.drawRoads();
     this.drawGrassDecor();
+    this.drawRocks();
     this.drawWorldFence();
+  }
+
+  /** Sandy paths linking the residential spots; the wilderness stays wild. */
+  private drawRoads(): void {
+    const roadColor = 0xd9c49c;
+    const edgeColor = 0xc4ad82;
+    const width = 40;
+    const hRoad = (
+      x1: number,
+      x2: number,
+      y: number,
+    ) => {
+      const from = Math.min(x1, x2);
+      const to = Math.max(x1, x2);
+      const mid = (from + to) / 2;
+      const len = to - from;
+      this.add.rectangle(mid, y, len, width + 6, edgeColor);
+      this.add.rectangle(mid, y, len, width, roadColor);
+    };
+    const vRoad = (x: number, y1: number, y2: number) => {
+      const from = Math.min(y1, y2);
+      const to = Math.max(y1, y2);
+      const mid = (from + to) / 2;
+      const len = to - from;
+      this.add.rectangle(x, mid, width + 6, len, edgeColor);
+      this.add.rectangle(x, mid, width, len, roadColor);
+    };
+    // Spawn -> Restaurant (straight south)
+    vRoad(0, 60, RESTAURANT_DOOR.y);
+    // Spawn -> Lumber yard (west then north to the door)
+    hRoad(0, LUMBER_DOOR.x, -16);
+    vRoad(LUMBER_DOOR.x, -16, LUMBER_DOOR.y);
+    // Spawn -> Phone store (east then south)
+    hRoad(0, PHONE_STORE_POS.x, 16);
+    vRoad(PHONE_STORE_POS.x, 16, PHONE_STORE_POS.y - 30);
   }
 
   private drawAreaPlaque(area: Area): void {
@@ -173,6 +221,46 @@ export class MainScene extends Phaser.Scene {
         x <= a.bounds.x + a.bounds.width &&
         y >= a.bounds.y &&
         y <= a.bounds.y + a.bounds.height,
+    );
+  }
+
+  /** Rocks scattered across the wilderness (not inside areas, not on roads). */
+  private drawRocks(): void {
+    let seed = 777;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const placed: { x: number; y: number }[] = [];
+    let attempts = 0;
+    while (placed.length < 22 && attempts < 400) {
+      attempts += 1;
+      const x = WORLD_BOUNDS.x + 40 + rand() * (WORLD_BOUNDS.width - 80);
+      const y = WORLD_BOUNDS.y + 40 + rand() * (WORLD_BOUNDS.height - 80);
+      if (this.insideAnyArea(x, y)) continue;
+      if (this.nearRoad(x, y, 46)) continue;
+      if (placed.some((p) => Math.hypot(p.x - x, p.y - y) < 90)) continue;
+      placed.push({ x, y });
+      const big = rand() > 0.6;
+      this.add.ellipse(x + 2, y + (big ? 10 : 6), big ? 30 : 20, big ? 12 : 8, 0x3d2b1f, 0.15);
+      this.add
+        .text(x, y, big ? "🪨" : "🪨", {
+          fontSize: big ? "26px" : "18px",
+        })
+        .setOrigin(0.5);
+    }
+  }
+
+  private nearRoad(x: number, y: number, padding: number): boolean {
+    const onH = (ry: number) => Math.abs(y - ry) < padding && x > -520 && x < 420;
+    const onV = (rx: number, y1: number, y2: number) =>
+      Math.abs(x - rx) < padding && y > Math.min(y1, y2) - padding && y < Math.max(y1, y2) + padding;
+    return (
+      onH(-16) ||
+      onH(16) ||
+      onV(0, 60, RESTAURANT_DOOR.y) ||
+      onV(LUMBER_DOOR.x, -16, LUMBER_DOOR.y) ||
+      onV(PHONE_STORE_POS.x, 16, PHONE_STORE_POS.y - 30)
     );
   }
 
@@ -337,9 +425,9 @@ export class MainScene extends Phaser.Scene {
   update(_time: number, _delta: number): void {
     this.session.tick(this.game.loop.delta);
 
-    // Chop with held mouse button
+    // Left click uses the selected hotbar item; the axe chops trees.
     const pointer = this.input.activePointer;
-    if (pointer.isDown && pointer.button === 0) {
+    if (pointer.isDown && pointer.button === 0 && this.isSelectedAxe()) {
       this.session.chopAt(
         { x: this.rig.circle.x, y: this.rig.circle.y },
         this.game.loop.delta / 1000,
@@ -372,6 +460,11 @@ export class MainScene extends Phaser.Scene {
       this.lastAreaLabel = label;
       this.events.emit(AREA_CHANGE_EVENT, label);
     }
+  }
+
+  private isSelectedAxe(): boolean {
+    const ui = this.bridge.getSnapshot();
+    return ui.hotbar[ui.selectedSlot] === "axe";
   }
 
   private renderTrees(): void {
