@@ -1,8 +1,13 @@
 import Phaser from "phaser";
 import { MainScene, AREA_CHANGE_EVENT } from "./MainScene";
+import { GameBridge } from "./bridge";
+import { DEFAULT_BINDINGS, makeAudioSettings } from "shared";
 
-export function createGame(parent: HTMLElement): Phaser.Game {
-  return new Phaser.Game({
+export function createGame(
+  parent: HTMLElement,
+  bridge: GameBridge,
+): Phaser.Game {
+  const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent,
     width: window.innerWidth,
@@ -16,6 +21,18 @@ export function createGame(parent: HTMLElement): Phaser.Game {
       },
     },
     scene: [MainScene],
+  });
+
+  const scene = game.scene.getScene("MainScene") as MainScene;
+  scene.constructorBridge(bridge);
+
+  return game;
+}
+
+export function makeDefaultBridge(): GameBridge {
+  return new GameBridge({
+    bindings: { ...DEFAULT_BINDINGS },
+    audio: makeAudioSettings(),
   });
 }
 

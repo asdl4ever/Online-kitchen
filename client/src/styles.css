@@ -28,35 +28,48 @@ body,
   display: block;
 }
 
-.game-overlay {
+/* HUD */
+.hud-top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  pointer-events: none;
-  padding: 12px;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  pointer-events: none;
+  gap: 8px;
 }
 
-.hud-area {
+.hud-area,
+.hud-resources {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chip {
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   border-radius: 8px;
   padding: 8px 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.hud-label {
-  font-size: 12px;
-  opacity: 0.75;
-}
-
-.hud-value {
   font-size: 15px;
   font-weight: 600;
+}
+
+.chip-area {
+  font-size: 13px;
+}
+
+.chip-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  border: none;
+}
+
+.chip-btn:hover {
+  background: rgba(0, 0, 0, 0.7);
 }
 
 .hud-help {
@@ -70,4 +83,255 @@ body,
 
 .hud-help p {
   margin: 0;
+}
+
+.hud-prompt {
+  margin-top: 6px !important;
+  color: #ffe082;
+  font-weight: 600;
+}
+
+/* Overlays */
+.overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.panel {
+  background: #fff;
+  border-radius: 14px;
+  padding: 20px 24px;
+  min-width: 300px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow: auto;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+
+.panel-lg {
+  min-width: 380px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.panel h3 {
+  margin: 18px 0 8px;
+  font-size: 15px;
+  color: #555;
+}
+
+.panel-balance {
+  color: #b8860b;
+  font-weight: 600;
+}
+
+.panel-hint {
+  color: #888;
+  font-size: 13px;
+}
+
+.btn {
+  margin-top: 14px;
+  margin-right: 8px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #2f6b2f;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: #3c823c;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: #ddd;
+  color: #333;
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: #ccc;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  margin-top: 0;
+}
+
+/* Inventory */
+.inv-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+.inv-list li {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* Menu */
+.dish-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+}
+
+.dish-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.dish-emoji {
+  font-size: 28px;
+}
+
+.dish-info {
+  flex: 1;
+}
+
+.dish-name {
+  font-weight: 600;
+}
+
+.dish-meta {
+  font-size: 12px;
+  color: #999;
+}
+
+.dish-price {
+  font-weight: 600;
+  color: #b8860b;
+}
+
+/* Collection */
+.collection-grid {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.collection-item {
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.collection-item.locked {
+  background: #fafafa;
+  color: #aaa;
+}
+
+.collection-emoji {
+  font-size: 26px;
+}
+
+.collection-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.collection-count {
+  font-size: 12px;
+  color: #2f6b2f;
+}
+
+.collection-hint {
+  font-size: 12px;
+}
+
+/* Settings */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+  font-size: 14px;
+}
+
+.slider-row input {
+  flex: 1;
+}
+
+.binding-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.binding-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.key-cap {
+  min-width: 90px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f4f4f4;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.key-cap:hover {
+  background: #e8e8e8;
+}
+
+.capture-hint {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+/* Toast */
+.toast {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 10px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 15px;
+  z-index: 30;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+}
+
+.toast-emoji {
+  font-size: 22px;
 }

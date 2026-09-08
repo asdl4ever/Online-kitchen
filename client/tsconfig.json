@@ -12,10 +12,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
-    "paths": {
-      "shared": ["../../shared/src/index.ts"]
-    }
+    "resolveJsonModule": true
   },
   "include": ["src", "test", "vite.config.ts"]
 }
