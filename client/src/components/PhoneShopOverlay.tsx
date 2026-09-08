@@ -16,7 +16,8 @@ export function PhoneShopOverlay({ bridge }: { bridge: GameBridge }) {
         <h2>📱 手机店</h2>
         {owned ? (
           <>
-            <p>你已经有一部手机啦，随时打开手机 App 远程点餐。</p>
+            <p>✅ 你已经有一部手机啦！</p>
+            <p className="panel-hint">随时点击 HUD 的 📲 按钮，地图任意位置远程点餐。</p>
             <button
               className="btn"
               onClick={() => bridge.send({ type: "close-phone-shop" })}
@@ -26,20 +27,25 @@ export function PhoneShopOverlay({ bridge }: { bridge: GameBridge }) {
           </>
         ) : (
           <>
-            <p>一部手机 {PHONE_PRICE} 元，买下后即可在地图任意处点餐。</p>
-            <p className="panel-balance">余额：💰 {state.money}</p>
+            <p>
+              智能手机 📱 一部 <b>{PHONE_PRICE}</b> 元
+            </p>
+            <p className="panel-balance">💰 余额 {state.money} 元</p>
+            <p className="panel-hint">
+              💡 买下后不用跑柜台，在地图任意处用 App 点餐，菜照样送到桌前。
+            </p>
             <button
               className="btn"
               disabled={state.money < PHONE_PRICE}
               onClick={() => bridge.send({ type: "buy-phone" })}
             >
-              {state.money >= PHONE_PRICE ? "购买 📱" : "钱不够哦"}
+              {state.money >= PHONE_PRICE ? "购买 📱" : "钱不够哦 😢"}
             </button>
             <button
               className="btn btn-ghost"
               onClick={() => bridge.send({ type: "close-phone-shop" })}
             >
-              离开
+              🚪 离开
             </button>
           </>
         )}

@@ -2,6 +2,15 @@ import { DISHES } from "shared";
 import { useGameState } from "../hooks/useGameState";
 import type { GameBridge } from "../game/bridge";
 
+const AREA_EMOJI: Record<string, string> = {
+  出生广场: "⛲",
+  树林: "🌲",
+  木材店: "🪵",
+  餐厅: "🍽️",
+  手机店: "📱",
+  野外地带: "🌾",
+};
+
 export function Hud({
   bridge,
   areaLabel,
@@ -17,17 +26,23 @@ export function Hud({
   return (
     <div className="hud-top">
       <div className="hud-area">
-        <span className="chip chip-area">📍 {areaLabel}</span>
+        <span className="chip chip-area">
+          {AREA_EMOJI[areaLabel] ?? "📍"} {areaLabel}
+        </span>
       </div>
       <div className="hud-resources">
-        <span className="chip" title="木材">🪵 {state.logs}</span>
-        <span className="chip" title="金钱">💰 {state.money}</span>
+        <span className="chip" title="木材">
+          🪵 <b>{state.logs}</b>
+        </span>
+        <span className="chip" title="金钱">
+          💰 <b>{state.money}</b>
+        </span>
         <button
           className="chip chip-btn"
           onClick={() => bridge.send({ type: "toggle-collection" })}
           title="美食收藏"
         >
-          🍴 {done}/{DISHES.length}
+          🍴 <b>{done}</b>/{DISHES.length}
         </button>
         {state.hasPhone && (
           <button
@@ -40,8 +55,12 @@ export function Hud({
         )}
       </div>
       <div className="hud-help">
-        <p>按 {prettyKey(bindKey)} 打开背包 · Esc 设置</p>
-        {!state.hasPhone && <p className="hud-tip">去 📱 手机店买手机，可远程点餐</p>}
+        <p>
+          <kbd>{prettyKey(bindKey)}</kbd> 背包 · <kbd>Esc</kbd> 设置
+        </p>
+        {!state.hasPhone && (
+          <p className="hud-tip">💡 去 📱 手机店买手机，可远程点餐</p>
+        )}
         {state.prompt && <p className="hud-prompt">{state.prompt}</p>}
       </div>
     </div>

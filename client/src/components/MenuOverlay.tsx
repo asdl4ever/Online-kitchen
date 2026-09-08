@@ -9,8 +9,8 @@ export function MenuOverlay({ bridge }: { bridge: GameBridge }) {
   return (
     <div className="overlay-backdrop" onClick={() => bridge.send({ type: "close-menu" })}>
       <div className="panel panel-lg" onClick={(e) => e.stopPropagation()}>
-        <h2>🍜 今日菜单</h2>
-        <p className="panel-balance">余额：💰 {state.money}</p>
+        <h2>🍽️ 老板的菜单</h2>
+        <p className="panel-balance">💰 余额 {state.money} 元</p>
         <ul className="dish-list">
           {DISHES.map((dish) => {
             const affordable = state.money >= dish.price;
@@ -19,9 +19,9 @@ export function MenuOverlay({ bridge }: { bridge: GameBridge }) {
                 <span className="dish-emoji">{dish.emoji}</span>
                 <div className="dish-info">
                   <div className="dish-name">{dish.name}</div>
-                  <div className="dish-meta">出菜约 {dish.cookSeconds}s</div>
+                  <div className="dish-meta">⏱️ 出菜约 {dish.cookSeconds} 秒</div>
                 </div>
-                <span className="dish-price">💰 {dish.price}</span>
+                <span className="dish-price">{dish.price} 元</span>
                 <button
                   className="btn btn-sm"
                   disabled={!affordable}
@@ -29,14 +29,14 @@ export function MenuOverlay({ bridge }: { bridge: GameBridge }) {
                     bridge.send({ type: "order-food", dishId: dish.id })
                   }
                 >
-                  {affordable ? "点单" : "钱不够"}
+                  {affordable ? "点单 ✅" : "钱不够 😢"}
                 </button>
               </li>
             );
           })}
         </ul>
-        <button className="btn" onClick={() => bridge.send({ type: "close-menu" })}>
-          离开
+        <button className="btn btn-ghost" onClick={() => bridge.send({ type: "close-menu" })}>
+          🚪 离开
         </button>
       </div>
     </div>

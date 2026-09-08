@@ -39,6 +39,14 @@ const AREA_COLORS: Record<Area["kind"], number> = {
   phoneStore: 0x5b7bd5,
 };
 
+const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
+  spawn: "⛲",
+  forest: "🌲",
+  lumberYard: "🪵",
+  restaurant: "🍽️",
+  phoneStore: "📱",
+};
+
 export const AREA_CHANGE_EVENT = "area-change";
 
 export interface Mechanics {
@@ -71,6 +79,8 @@ export class MainScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private player!: Phaser.GameObjects.Arc;
   private playerBody!: Phaser.Physics.Arcade.Body;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
+  private playerFace!: Phaser.GameObjects.Text;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private playerSpeed = 240;
   private lastAreaLabel: string | undefined;
@@ -123,6 +133,12 @@ export class MainScene extends Phaser.Scene {
     this.playerBody = this.player.body as Phaser.Physics.Arcade.Body;
     this.playerBody.setCollideWorldBounds(true);
 
+    // Soft shadow + cute face follow the ball every frame
+    this.playerShadow = this.add.ellipse(0, 12, 26, 10, 0x3d2b1f, 0.22);
+    this.playerFace = this.add
+      .text(0, -2, "◕‿◕", { fontSize: "10px", color: "#7a5a00" })
+      .setOrigin(0.5);
+
     this.bindKeys();
     this.registerBridgeCommands();
 
@@ -138,6 +154,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   private drawWorld(): void {
+    // Ground base
     this.add.rectangle(
       WORLD_BOUNDS.x + WORLD_BOUNDS.width / 2,
       WORLD_BOUNDS.y + WORLD_BOUNDS.height / 2,
@@ -157,13 +174,82 @@ export class MainScene extends Phaser.Scene {
         AREA_COLORS[area.kind],
         0.8,
       );
+      // Rounded title plaque at the top of each area
+      this.drawAreaPlaque(area);
+    }
+
+    this.drawGrassDecor();
+    this.drawWorldFence();
+  }
+
+  private drawAreaPlaque(area: Area): void {
+    const cx = area.bounds.x + area.bounds.width / 2;
+    const top = area.bounds.y + 18;
+    const label = `${AREA_PLAQUE_EMOJI[area.kind] ?? "📍"} ${area.label}`;
+    const text = this.add
+      .text(cx, top, label, {
+        fontSize: "17px",
+        color: "#ffffff",
+        fontStyle: "bold",
+        padding: { x: 12, y: 5 },
+      })
+      .setOrigin(0.5);
+    const w = text.width + 20;
+    const h = 34;
+    const bg = this.add.graphics();
+    bg.fillStyle(0x3d2b1f, 0.72);
+    bg.fillRoundedRect(cx - w / 2, top - h / 2, w, h, 12);
+    bg.lineStyle(2, 0xfffaf2, 0.9);
+    bg.strokeRoundedRect(cx - w / 2, top - h / 2, w, h, 12);
+    text.setDepth(bg.depth + 1);
+  }
+
+  private drawGrassDecor(): void {
+    const decor = ["🌿", "🌱", "🌼", "🌷", "🍀", "🍄"];
+    let seed = 42;
+    const rand = () => {
+      // Deterministic LCG so decor layout is stable between runs.
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    for (let i = 0; i < 90; i++) {
+      const x =
+        WORLD_BOUNDS.x + 30 + rand() * (WORLD_BOUNDS.width - 60);
+      const y =
+        WORLD_BOUNDS.y + 30 + rand() * (WORLD_BOUNDS.height - 60);
+      // Keep decor out of the restaurant/phone store interiors
+      if (this.insideAnyArea(x, y)) continue;
+      const emoji = decor[Math.floor(rand() * decor.length)];
       this.add
-        .text(cx, cy, area.label, {
-          fontSize: "20px",
-          color: "#ffffff",
-          fontStyle: "bold",
-        })
-        .setOrigin(0.5);
+        .text(x, y, emoji, { fontSize: `${14 + Math.floor(rand() * 8)}px` })
+        .setOrigin(0.5)
+        .setAlpha(0.85);
+    }
+  }
+
+  private insideAnyArea(x: number, y: number): boolean {
+    return AREAS.some(
+      (a) =>
+        x >= a.bounds.x &&
+        x <= a.bounds.x + a.bounds.width &&
+        y >= a.bounds.y &&
+        y <= a.bounds.y + a.bounds.height,
+    );
+  }
+
+  private drawWorldFence(): void {
+    const step = 64;
+    const minX = WORLD_BOUNDS.x;
+    const minY = WORLD_BOUNDS.y;
+    const maxX = WORLD_BOUNDS.x + WORLD_BOUNDS.width;
+    const maxY = WORLD_BOUNDS.y + WORLD_BOUNDS.height;
+    for (let x = minX; x <= maxX; x += step) {
+      this.add.text(x, minY, "🪵", { fontSize: "18px" }).setOrigin(0.5);
+      this.add.text(x, maxY, "🪵", { fontSize: "18px" }).setOrigin(0.5);
+    }
+    for (let y = minY + step; y < maxY; y += step) {
+      this.add.text(minX, y, "🪵", { fontSize: "18px" }).setOrigin(0.5);
+      this.add.text(maxX, y, "🪵", { fontSize: "18px" }).setOrigin(0.5);
     }
   }
 
@@ -192,24 +278,65 @@ export class MainScene extends Phaser.Scene {
   }
 
   private drawFacilities(): void {
-    this.drawShopMarker(LUMBER_DEPOT_POS, "🏪", "木材店");
-    this.drawShopMarker(COUNTER_POS, "🧑‍🍳", "点餐台");
-    this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店");
+    this.drawShopMarker(LUMBER_DEPOT_POS, "🏪", "木材店", "💰 卖木材换钱");
+    this.drawShopMarker(COUNTER_POS, "🧑‍🍳", "点餐台", "📝 找老板点单");
+    this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店", "📲 买手机");
     TABLE_POSITIONS.forEach((pos, i) => {
-      this.add.rectangle(pos.x, pos.y, 34, 34, 0x9b6d4c, 0.95);
+      // Table shadow
+      this.add.ellipse(pos.x + 2, pos.y + 4, 40, 30, 0x3d2b1f, 0.18);
+      this.add.rectangle(pos.x, pos.y, 36, 36, 0x9b6d4c, 0.98);
+      this.add.rectangle(pos.x, pos.y, 28, 28, 0xc08b5f, 0.98);
       this.add
-        .text(pos.x, pos.y, `🪑${i + 1}`, { fontSize: "16px" })
+        .text(pos.x, pos.y, `🪑`, { fontSize: "16px" })
         .setOrigin(0.5);
+      this.add
+        .text(pos.x + 14, pos.y - 14, `${i + 1}`, {
+          fontSize: "11px",
+          color: "#fff",
+          fontStyle: "bold",
+        })
+        .setOrigin(0.5)
+        .setDepth(1);
+      this.add.circle(pos.x + 14, pos.y - 14, 8, 0xe8833a, 0.95);
     });
   }
 
   private drawShopMarker(
     pos: { x: number; y: number },
     emoji: string,
-    _label: string,
+    label: string,
+    hint?: string,
   ): void {
-    this.add.rectangle(pos.x, pos.y, 46, 36, 0x3b3b3b, 0.9);
-    this.add.text(pos.x + 2, pos.y - 2, emoji, { fontSize: "24px" }).setOrigin(0.5);
+    // Shadow
+    this.add.ellipse(pos.x + 2, pos.y + 22, 60, 14, 0x3d2b1f, 0.18);
+    // Booth body
+    this.add.rectangle(pos.x, pos.y, 52, 42, 0x3b3b3b, 0.92);
+    this.add.rectangle(pos.x, pos.y - 4, 44, 30, 0x574434, 0.95);
+    this.add.text(pos.x + 2, pos.y - 4, emoji, { fontSize: "26px" }).setOrigin(0.5);
+    // Sign
+    const sign = this.add
+      .text(pos.x, pos.y - 34, `${emoji} ${label}`, {
+        fontSize: "13px",
+        color: "#fff8ec",
+        fontStyle: "bold",
+        padding: { x: 8, y: 3 },
+      })
+      .setOrigin(0.5);
+    const sw = sign.width + 12;
+    const signBg = this.add.graphics();
+    signBg.fillStyle(0x3d2b1f, 0.78);
+    signBg.fillRoundedRect(pos.x - sw / 2, pos.y - 46, sw, 24, 8);
+    sign.setDepth(signBg.depth + 1);
+    if (hint) {
+      this.add
+        .text(pos.x, pos.y + 32, hint, {
+          fontSize: "11px",
+          color: "#fff8ec",
+          backgroundColor: "#3d2b1f99",
+          padding: { x: 6, y: 2 },
+        })
+        .setOrigin(0.5);
+    }
   }
 
   private bindKeys(): void {
@@ -496,6 +623,9 @@ export class MainScene extends Phaser.Scene {
       vy = (dy / len) * this.playerSpeed;
     }
     this.playerBody.setVelocity(vx, vy);
+
+    this.playerShadow.setPosition(this.player.x + 2, this.player.y + 12);
+    this.playerFace.setPosition(this.player.x, this.player.y - 1);
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
       this.pressInteract();

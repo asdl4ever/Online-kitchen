@@ -60,35 +60,38 @@ export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
         <section>
           <h3>🔊 声音</h3>
           <label className="slider-row">
-            主音量 <b>{Math.round(volume * 100)}%</b>
+            🎚️ 主音量 <b>{Math.round(volume * 100)}%</b>
             <input
               type="range"
               min={0}
               max={1}
               step={0.05}
               value={state.audio.master}
+              style={{ ["--fill" as string]: `${state.audio.master * 100}%` }}
               onChange={(e) => setMaster(Number(e.target.value))}
             />
           </label>
           <label className="slider-row">
-            音乐 <b>{Math.round(state.audio.music * 100)}%</b>
+            🎵 音乐 <b>{Math.round(state.audio.music * 100)}%</b>
             <input
               type="range"
               min={0}
               max={1}
               step={0.05}
               value={state.audio.music}
+              style={{ ["--fill" as string]: `${state.audio.music * 100}%` }}
               onChange={(e) => setMusic(Number(e.target.value))}
             />
           </label>
           <label className="slider-row">
-            音效 <b>{Math.round(state.audio.sfx * 100)}%</b>
+            🔔 音效 <b>{Math.round(state.audio.sfx * 100)}%</b>
             <input
               type="range"
               min={0}
               max={1}
               step={0.05}
               value={state.audio.sfx}
+              style={{ ["--fill" as string]: `${state.audio.sfx * 100}%` }}
               onChange={(e) => setSfx(Number(e.target.value))}
             />
           </label>
@@ -96,7 +99,7 @@ export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
 
         <section>
           <h3>⌨️ 按键设置</h3>
-          {capturing && <p className="capture-hint">按下新按键…（Esc 取消）</p>}
+          {capturing && <p className="capture-hint">⌨️ 请按下新按键…（Esc 取消）</p>}
           <ul className="binding-list">
             {rows.map(([action, key]) => (
               <li key={action}>
@@ -113,7 +116,7 @@ export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
           </ul>
         </section>
 
-        <button className="btn" onClick={() => bridge.send({ type: "toggle-settings" })}>
+        <button className="btn btn-ghost" onClick={() => bridge.send({ type: "toggle-settings" })}>
           关闭
         </button>
       </div>

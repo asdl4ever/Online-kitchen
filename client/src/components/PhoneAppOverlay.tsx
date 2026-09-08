@@ -13,7 +13,7 @@ export function PhoneAppOverlay({ bridge }: { bridge: GameBridge }) {
     >
       <div className="panel panel-lg" onClick={(e) => e.stopPropagation()}>
         <h2>📲 餐厅 App</h2>
-        <p className="panel-balance">余额：💰 {state.money}</p>
+        <p className="panel-balance">💰 余额 {state.money} 元</p>
         <ul className="dish-list">
           {DISHES.map((dish) => {
             const affordable = state.money >= dish.price;
@@ -22,9 +22,9 @@ export function PhoneAppOverlay({ bridge }: { bridge: GameBridge }) {
                 <span className="dish-emoji">{dish.emoji}</span>
                 <div className="dish-info">
                   <div className="dish-name">{dish.name}</div>
-                  <div className="dish-meta">出菜约 {dish.cookSeconds}s</div>
+                  <div className="dish-meta">⏱️ 出菜约 {dish.cookSeconds} 秒</div>
                 </div>
-                <span className="dish-price">💰 {dish.price}</span>
+                <span className="dish-price">{dish.price} 元</span>
                 <button
                   className="btn btn-sm"
                   disabled={!affordable}
@@ -32,14 +32,14 @@ export function PhoneAppOverlay({ bridge }: { bridge: GameBridge }) {
                     bridge.send({ type: "order-food", dishId: dish.id })
                   }
                 >
-                  {affordable ? "下单" : "钱不够"}
+                  {affordable ? "下单 🛵" : "钱不够 😢"}
                 </button>
               </li>
             );
           })}
         </ul>
         <button
-          className="btn"
+          className="btn btn-ghost"
           onClick={() => bridge.send({ type: "close-phone-app" })}
         >
           关闭
