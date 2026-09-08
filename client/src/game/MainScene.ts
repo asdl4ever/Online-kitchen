@@ -1,35 +1,20 @@
 import Phaser from "phaser";
+import { AREAS, areaAt, WORLD_BOUNDS, type Area } from "shared";
+import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
+import { SESSION_KEY, type GameSession } from "./session";
 import {
-  AREAS,
-  areaAt,
-  WORLD_BOUNDS,
-  type Area,
-  type ForestState,
-  type Order,
-  chopTree,
-  makeTree,
-  scheduleRegrow,
-  tickForest,
-  addLogs,
-  sellLogs,
-  buyPhone,
-  makeInventory,
-  placeOrder,
-  getDish,
-  tickOrders,
-  serveOrder,
-  recordEat,
-  makeFoodCollection,
-  rebind,
-  type Bindings,
-  type Dish,
-} from "shared";
+  createPlayerRig,
+  movePlayerRig,
+  syncPlayerVisuals,
+  teleportPlayer,
+  type PlayerRig,
+} from "./player";
 import {
-  GameBridge,
-  GAME_BRIDGE_KEY,
-  type BridgeCommand,
-  type OrderView,
-} from "./bridge";
+  RESTAURANT_SCENE_KEY,
+  LUMBER_YARD_SCENE_KEY,
+  ENTRY_RETURN_KEY,
+} from "./RoomScene";
+import type { TreeSprite } from "./types";
 
 const AREA_COLORS: Record<Area["kind"], number> = {
   spawn: 0x7ec850,
@@ -49,74 +34,35 @@ const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
 
 export const AREA_CHANGE_EVENT = "area-change";
 
-export interface Mechanics {
-  chopDamagePerSecond: number;
-  interactRange: number;
-}
-
-const LUMBER_DEPOT_POS = { x: -400, y: -140 };
-const COUNTER_POS = { x: -40, y: 310 };
+const LUMBER_BUILDING = { x: -400, y: -140 };
+const LUMBER_DOOR = { x: -400, y: -76 };
+const RESTAURANT_BUILDING = { x: 0, y: 330 };
+const RESTAURANT_DOOR = { x: 0, y: 402 };
 const PHONE_STORE_POS = { x: 340, y: 350 };
-const TABLE_POSITIONS = [
-  { x: -20, y: 360 },
-  { x: 60, y: 360 },
-  { x: -20, y: 410 },
-];
 
 type PendingInteract =
-  | { kind: "menu" }
-  | { kind: "depot" }
+  | { kind: "enter-restaurant" }
+  | { kind: "enter-lumber" }
   | { kind: "phone-shop" }
-  | { kind: "seat"; tableIndex: number }
   | null;
-
-interface TreeSprite {
-  container: Phaser.GameObjects.Container;
-  graphic: Phaser.GameObjects.GameObject;
-}
 
 export class MainScene extends Phaser.Scene {
   private bridge!: GameBridge;
-  private player!: Phaser.GameObjects.Arc;
-  private playerBody!: Phaser.Physics.Arcade.Body;
-  private playerShadow!: Phaser.GameObjects.Ellipse;
-  private playerFace!: Phaser.GameObjects.Text;
-  private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private playerSpeed = 240;
+  private session!: GameSession;
+  private rig!: PlayerRig;
   private lastAreaLabel: string | undefined;
-  private mechanics: Mechanics = {
-    chopDamagePerSecond: 5,
-    interactRange: 70,
-  };
-
-  private forest: ForestState = { trees: [] };
-  private inventory = makeInventory();
-  private orders: Order[] = [];
-  private collection = makeFoodCollection();
-  private seatedTable: number | null = null;
-  private seatGameObject: Phaser.GameObjects.Container | null = null;
-  private gameClock = 0;
-  private lastDeltaMs = 0;
   private pendingInteract: PendingInteract = null;
   private treeSprites = new Map<string, TreeSprite>();
-  private waiterWiggle = 0;
 
   constructor() {
     super("MainScene");
   }
 
-  constructorBridge(bridge: GameBridge): void {
-    this.bridge = bridge;
-  }
-
   create(): void {
-    // Bridge is attached by createGame via the game registry before boot.
-    const registered = this.game.registry.get(GAME_BRIDGE_KEY) as
-      | GameBridge
-      | undefined;
-    if (registered) {
-      this.bridge = registered;
-    }
+    // Bridge & session are attached via the game registry before boot.
+    this.bridge = this.game.registry.get(GAME_BRIDGE_KEY) as GameBridge;
+    this.session = this.game.registry.get(SESSION_KEY) as GameSession;
+
     this.physics.world.setBounds(
       WORLD_BOUNDS.x,
       WORLD_BOUNDS.y,
@@ -125,24 +71,11 @@ export class MainScene extends Phaser.Scene {
     );
 
     this.drawWorld();
-    this.spawnForest();
-    this.drawFacilities();
+    this.drawBuildings();
 
-    this.player = this.add.circle(0, 0, 14, 0xffd93b);
-    this.physics.add.existing(this.player);
-    this.playerBody = this.player.body as Phaser.Physics.Arcade.Body;
-    this.playerBody.setCollideWorldBounds(true);
+    this.rig = createPlayerRig(this, 0, 0);
 
-    // Soft shadow + cute face follow the ball every frame
-    this.playerShadow = this.add.ellipse(0, 12, 26, 10, 0x3d2b1f, 0.22);
-    this.playerFace = this.add
-      .text(0, -2, "◕‿◕", { fontSize: "10px", color: "#7a5a00" })
-      .setOrigin(0.5);
-
-    this.bindKeys();
-    this.registerBridgeCommands();
-
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
+    this.cameras.main.startFollow(this.rig.circle, true, 0.1, 0.1);
     this.cameras.main.setBounds(
       WORLD_BOUNDS.x,
       WORLD_BOUNDS.y,
@@ -150,11 +83,22 @@ export class MainScene extends Phaser.Scene {
       WORLD_BOUNDS.height,
     );
 
-    this.publishSnapshot();
+    this.events.on("wake", () => this.onWake());
+    this.session.publishSnapshot();
+  }
+
+  private onWake(): void {
+    const returnPos = this.game.registry.get(ENTRY_RETURN_KEY) as
+      | { x: number; y: number }
+      | undefined;
+    if (returnPos) {
+      this.game.registry.remove(ENTRY_RETURN_KEY);
+      teleportPlayer(this.rig, returnPos.x, returnPos.y);
+    }
+    this.pendingInteract = null;
   }
 
   private drawWorld(): void {
-    // Ground base
     this.add.rectangle(
       WORLD_BOUNDS.x + WORLD_BOUNDS.width / 2,
       WORLD_BOUNDS.y + WORLD_BOUNDS.height / 2,
@@ -174,7 +118,6 @@ export class MainScene extends Phaser.Scene {
         AREA_COLORS[area.kind],
         0.8,
       );
-      // Rounded title plaque at the top of each area
       this.drawAreaPlaque(area);
     }
 
@@ -208,16 +151,12 @@ export class MainScene extends Phaser.Scene {
     const decor = ["🌿", "🌱", "🌼", "🌷", "🍀", "🍄"];
     let seed = 42;
     const rand = () => {
-      // Deterministic LCG so decor layout is stable between runs.
       seed = (seed * 1103515245 + 12345) % 2147483648;
       return seed / 2147483648;
     };
     for (let i = 0; i < 90; i++) {
-      const x =
-        WORLD_BOUNDS.x + 30 + rand() * (WORLD_BOUNDS.width - 60);
-      const y =
-        WORLD_BOUNDS.y + 30 + rand() * (WORLD_BOUNDS.height - 60);
-      // Keep decor out of the restaurant/phone store interiors
+      const x = WORLD_BOUNDS.x + 30 + rand() * (WORLD_BOUNDS.width - 60);
+      const y = WORLD_BOUNDS.y + 30 + rand() * (WORLD_BOUNDS.height - 60);
       if (this.insideAnyArea(x, y)) continue;
       const emoji = decor[Math.floor(rand() * decor.length)];
       this.add
@@ -253,52 +192,58 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
-  private spawnForest(): void {
-    const forestArea = AREAS.find((a) => a.kind === "forest")!;
-    const cols = 5;
-    const rows = 5;
-    const spacingX = 46;
-    const spacingY = 66;
-    const startX = forestArea.bounds.x + 30;
-    const startY = forestArea.bounds.y + 50;
-    let idx = 0;
-    const trees: ForestState["trees"] = [];
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const offset = r % 2 === 0 ? 0 : spacingX / 2;
-        const x = startX + c * spacingX + offset;
-        const y = startY + r * spacingY;
-        trees.push(
-          makeTree(`tree-${idx}`, { x, y }, { maxHp: 6, logDrop: 1, regrowSeconds: 12 }),
-        );
-        idx += 1;
-      }
-    }
-    this.forest = { trees };
+  private drawBuildings(): void {
+    this.drawBuilding(LUMBER_BUILDING, "🏪", "木材店", "🪵");
+    this.drawDoorMarker(LUMBER_DOOR);
+    this.drawBuilding(RESTAURANT_BUILDING, "🍽️", "餐厅", "🧑‍🍳");
+    this.drawDoorMarker(RESTAURANT_DOOR);
+    this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店", "📲 买手机");
   }
 
-  private drawFacilities(): void {
-    this.drawShopMarker(LUMBER_DEPOT_POS, "🏪", "木材店", "💰 卖木材换钱");
-    this.drawShopMarker(COUNTER_POS, "🧑‍🍳", "点餐台", "📝 找老板点单");
-    this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店", "📲 买手机");
-    TABLE_POSITIONS.forEach((pos, i) => {
-      // Table shadow
-      this.add.ellipse(pos.x + 2, pos.y + 4, 40, 30, 0x3d2b1f, 0.18);
-      this.add.rectangle(pos.x, pos.y, 36, 36, 0x9b6d4c, 0.98);
-      this.add.rectangle(pos.x, pos.y, 28, 28, 0xc08b5f, 0.98);
-      this.add
-        .text(pos.x, pos.y, `🪑`, { fontSize: "16px" })
-        .setOrigin(0.5);
-      this.add
-        .text(pos.x + 14, pos.y - 14, `${i + 1}`, {
-          fontSize: "11px",
-          color: "#fff",
-          fontStyle: "bold",
-        })
-        .setOrigin(0.5)
-        .setDepth(1);
-      this.add.circle(pos.x + 14, pos.y - 14, 8, 0xe8833a, 0.95);
-    });
+  private drawBuilding(
+    pos: { x: number; y: number },
+    emoji: string,
+    label: string,
+    counterEmoji: string,
+  ): void {
+    // Shadow
+    this.add.ellipse(pos.x + 2, pos.y + 34, 110, 18, 0x3d2b1f, 0.18);
+    // Building body
+    this.add.rectangle(pos.x, pos.y, 120, 84, 0x6b5140, 0.95);
+    // Roof
+    this.add.rectangle(pos.x, pos.y - 46, 132, 20, 0x8a5a44, 0.98);
+    this.add.rectangle(pos.x, pos.y - 32, 120, 10, 0x7a4c3a, 0.98);
+    // Window + counter emoji inside
+    this.add.rectangle(pos.x - 30, pos.y + 4, 26, 22, 0xfff3d6, 0.95);
+    this.add.text(pos.x + 26, pos.y + 4, counterEmoji, { fontSize: "22px" }).setOrigin(0.5);
+    // Sign
+    const sign = this.add
+      .text(pos.x, pos.y - 72, `${emoji} ${label}`, {
+        fontSize: "14px",
+        color: "#fff8ec",
+        fontStyle: "bold",
+        padding: { x: 10, y: 4 },
+      })
+      .setOrigin(0.5);
+    const sw = sign.width + 14;
+    const signBg = this.add.graphics();
+    signBg.fillStyle(0x3d2b1f, 0.82);
+    signBg.fillRoundedRect(pos.x - sw / 2, pos.y - 90, sw, 28, 10);
+    sign.setDepth(signBg.depth + 1);
+  }
+
+  private drawDoorMarker(pos: { x: number; y: number }): void {
+    this.add
+      .text(pos.x, pos.y, "🚪", { fontSize: "24px" })
+      .setOrigin(0.5);
+    this.add
+      .text(pos.x, pos.y + 22, "进入", {
+        fontSize: "11px",
+        color: "#fff8ec",
+        backgroundColor: "#3d2b1f99",
+        padding: { x: 6, y: 2 },
+      })
+      .setOrigin(0.5);
   }
 
   private drawShopMarker(
@@ -307,13 +252,10 @@ export class MainScene extends Phaser.Scene {
     label: string,
     hint?: string,
   ): void {
-    // Shadow
     this.add.ellipse(pos.x + 2, pos.y + 22, 60, 14, 0x3d2b1f, 0.18);
-    // Booth body
     this.add.rectangle(pos.x, pos.y, 52, 42, 0x3b3b3b, 0.92);
     this.add.rectangle(pos.x, pos.y - 4, 44, 30, 0x574434, 0.95);
     this.add.text(pos.x + 2, pos.y - 4, emoji, { fontSize: "26px" }).setOrigin(0.5);
-    // Sign
     const sign = this.add
       .text(pos.x, pos.y - 34, `${emoji} ${label}`, {
         fontSize: "13px",
@@ -339,314 +281,92 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
-  private bindKeys(): void {
-    const kb = this.input.keyboard!;
-    kb.addCapture([Phaser.Input.Keyboard.KeyCodes.F, Phaser.Input.Keyboard.KeyCodes.E]);
-    this.keys = {};
-    this.keys.interact = kb.addKey(Phaser.Input.Keyboard.KeyCodes.F, false, false);
-    this.keys.openInventory = kb.addKey(Phaser.Input.Keyboard.KeyCodes.E, false, false);
-    this.keys.openSettings = kb.addKey(Phaser.Input.Keyboard.KeyCodes.ESC, false, false);
-    this.keys.moveUp = kb.addKey(Phaser.Input.Keyboard.KeyCodes.W, false, false);
-    this.keys.moveDown = kb.addKey(Phaser.Input.Keyboard.KeyCodes.S, false, false);
-    this.keys.moveLeft = kb.addKey(Phaser.Input.Keyboard.KeyCodes.A, false, false);
-    this.keys.moveRight = kb.addKey(Phaser.Input.Keyboard.KeyCodes.D, false, false);
-  }
-
-  private registerBridgeCommands(): void {
-    const handler = (c: BridgeCommand) => this.handleCommand(c);
-    this.bridge.on("toggle-inventory", handler);
-    this.bridge.on("toggle-settings", handler);
-    this.bridge.on("open-menu", handler);
-    this.bridge.on("close-menu", handler);
-    this.bridge.on("open-depot", handler);
-    this.bridge.on("close-depot", handler);
-    this.bridge.on("open-phone-shop", handler);
-    this.bridge.on("close-phone-shop", handler);
-    this.bridge.on("buy-phone", handler);
-    this.bridge.on("open-phone-app", handler);
-    this.bridge.on("close-phone-app", handler);
-    this.bridge.on("toggle-collection", handler);
-    this.bridge.on("order-food", handler);
-    this.bridge.on("sell-all-logs", handler);
-    this.bridge.on("sit-at-table", handler);
-    this.bridge.on("press-interact", handler);
-    this.bridge.on("set-audio", handler);
-    this.bridge.on("rebind", handler);
-  }
-
-  private handleCommand(c: BridgeCommand): void {
-    switch (c.type) {
-      case "toggle-inventory":
-        this.bridge.patch({ inventoryOpen: !this.bridge.getSnapshot().inventoryOpen });
+  private pressInteract(): void {
+    switch (this.pendingInteract?.kind) {
+      case "enter-restaurant":
+        this.enterRoom(RESTAURANT_SCENE_KEY, RESTAURANT_DOOR);
         break;
-      case "toggle-settings":
-        this.bridge.patch({ settingsOpen: !this.bridge.getSnapshot().settingsOpen });
+      case "enter-lumber":
+        this.enterRoom(LUMBER_YARD_SCENE_KEY, LUMBER_DOOR);
         break;
-      case "open-menu":
-        this.bridge.patch({ menuOpen: true });
-        break;
-      case "close-menu":
-        this.bridge.patch({ menuOpen: false });
-        break;
-      case "open-depot":
-        this.bridge.patch({ depotOpen: true });
-        break;
-      case "close-depot":
-        this.bridge.patch({ depotOpen: false });
-        break;
-      case "open-phone-shop":
+      case "phone-shop":
         this.bridge.patch({ phoneShopOpen: true });
         break;
-      case "close-phone-shop":
-        this.bridge.patch({ phoneShopOpen: false });
-        break;
-      case "buy-phone": {
-        const bought = buyPhone(this.inventory);
-        this.publishSnapshot();
-        if (bought) {
-          this.bridge.patch({ phoneShopOpen: false });
-          this.bridge.showToast("已购入手机，可随时远程点餐", "📱");
-        } else if (this.inventory.hasPhone) {
-          this.bridge.showToast("你已经有手机啦", "📱");
-        } else {
-          this.bridge.showToast("钱不够买手机", "😢");
-        }
-        break;
-      }
-      case "open-phone-app":
-        if (!this.inventory.hasPhone) {
-          this.bridge.showToast("还没有手机，去手机店买一部吧", "📵");
-          break;
-        }
-        this.bridge.patch({ phoneAppOpen: !this.bridge.getSnapshot().phoneAppOpen });
-        break;
-      case "close-phone-app":
-        this.bridge.patch({ phoneAppOpen: false });
-        break;
-      case "toggle-collection":
-        this.bridge.patch({
-          collectionOpen: !this.bridge.getSnapshot().collectionOpen,
-        });
-        break;
-      case "order-food": {
-        const dish = getDish(c.dishId);
-        const result = placeOrder({
-          inventory: this.inventory,
-          dishId: c.dishId,
-          customerId: "local",
-          nowSeconds: this.gameClock,
-        });
-        this.publishSnapshot();
-        if (!result.ok) {
-          this.bridge.showToast(
-            result.reason === "insufficient-funds" ? "钱不够哦" : "菜品不存在",
-            "😢",
-          );
-        } else {
-          const wasPhone = this.bridge.getSnapshot().phoneAppOpen;
-          this.bridge.patch({
-            menuOpen: false,
-            phoneAppOpen: false,
-          });
-          this.bridge.showToast(
-            wasPhone
-              ? `手机下单成功：${dish?.name ?? ""}，请就座等待`
-              : `已下单 ${dish?.name ?? ""}，请就座等待`,
-            "🧾",
-          );
-        }
-        break;
-      }
-      case "sell-all-logs": {
-        const result = sellLogs(this.inventory, this.inventory.logs);
-        this.publishSnapshot();
-        if (result.sold > 0) {
-          this.bridge.showToast(`卖出 ${result.sold} 根木材 +${result.earned} 元`, "💰");
-        } else {
-          this.bridge.showToast("还没有木材可卖", "🧺");
-        }
-        break;
-      }
-      case "sit-at-table":
-        this.toggleSeat();
-        break;
-      case "press-interact":
-        this.pressInteract();
-        break;
-      case "set-audio":
-        this.bridge.patch({ audio: c.audio });
-        break;
-      case "rebind": {
-        const current = this.bridge.getSnapshot();
-        const result = rebind({
-          bindings: current.bindings,
-          action: c.action as never,
-          key: c.key,
-        });
-        this.bridge.patch({ bindings: result.bindings });
-        break;
-      }
     }
   }
 
-  private toggleSeat(): void {
-    const pending = this.pendingInteract;
-    if (pending?.kind === "seat") {
-      if (this.seatedTable !== null && this.seatedTable !== pending.tableIndex) {
-        this.seatGameObject?.destroy();
-        this.seatGameObject = null;
-      }
-      this.seatedTable = pending.tableIndex;
-      this.placeSeatVisual(pending.tableIndex);
-      this.bridge.patch({ seated: true });
-      this.bridge.showToast(`已入座 ${pending.tableIndex + 1} 号桌`, "💺");
-      this.pendingInteract = null;
-      return;
-    }
-    if (this.seatedTable !== null) {
-      this.seatedTable = null;
-      this.seatGameObject?.destroy();
-      this.seatGameObject = null;
-      this.bridge.patch({ seated: false });
-      this.bridge.showToast("已起身", "🚶");
-    }
-  }
-
-  private placeSeatVisual(tableIndex: number): void {
-    this.seatGameObject?.destroy();
-    const table = TABLE_POSITIONS[tableIndex];
-    const container = this.add.container(table.x, table.y);
-    const balloon = this.add.circle(0, -22, 10, 0xffffff, 0.9);
-    container.add(balloon);
-    container.add(this.add.text(-6, -26, "😋", { fontSize: "14px" }));
-    this.seatGameObject = container;
-  }
-
-  private pressInteract(): void {
-    if (this.pendingInteract?.kind === "menu") {
-      this.bridge.patch({ menuOpen: true });
-    } else if (this.pendingInteract?.kind === "depot") {
-      this.bridge.patch({ depotOpen: true });
-    } else if (this.pendingInteract?.kind === "phone-shop") {
-      this.bridge.patch({ phoneShopOpen: true });
-    } else if (this.pendingInteract?.kind === "seat") {
-      this.toggleSeat();
-    }
-  }
-
-  private detectInteract(): void {
-    const pos = { x: this.player.x, y: this.player.y };
-    const range = this.mechanics.interactRange;
-    const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-      Math.hypot(a.x - b.x, a.y - b.y);
-
-    const nearCounter = dist(pos, COUNTER_POS) <= range;
-    const nearDepot = dist(pos, LUMBER_DEPOT_POS) <= range;
-    const nearPhoneShop = dist(pos, PHONE_STORE_POS) <= range;
-    let nearTable: number | null = null;
-    TABLE_POSITIONS.forEach((t, i) => {
-      if (dist(pos, t) <= range) nearTable = i;
+  private enterRoom(sceneKey: string, doorOnMap: { x: number; y: number }): void {
+    this.bridgePatchPrompt(null);
+    // Drop the player in front of the door when they come back out.
+    this.game.registry.set(ENTRY_RETURN_KEY, {
+      x: doorOnMap.x,
+      y: doorOnMap.y + 24,
     });
+    this.scene.sleep();
+    this.scene.launch(sceneKey);
+  }
 
-    let next: PendingInteract = null;
-    let prompt: string | null = null;
-    if (nearCounter) {
-      next = { kind: "menu" };
-      prompt = "按 F 向老板点单";
-    } else if (nearDepot) {
-      next = { kind: "depot" };
-      prompt = "按 F 出售木材";
-    } else if (nearPhoneShop) {
-      next = { kind: "phone-shop" };
-      prompt = this.inventory.hasPhone ? "按 F 进入手机店" : "按 F 买手机";
-    } else if (nearTable !== null) {
-      next = { kind: "seat", tableIndex: nearTable };
-      prompt = this.seatedTable !== null ? "按 F 起身" : "按 F 入座";
-    }
-    this.pendingInteract = next;
+  private bridgePatchPrompt(prompt: string | null): void {
     if (prompt !== this.bridge.getSnapshot().prompt) {
       this.bridge.patch({ prompt });
     }
   }
 
-  private updateChop(): void {
-    const pointer = this.input.activePointer;
-    const mouseDown = pointer.isDown && pointer.button === 0;
-    if (!mouseDown) return;
-    const pos = { x: this.player.x, y: this.player.y };
-    let nearestIdx = -1;
-    let nearestDist = this.mechanics.interactRange + 40;
-    for (let i = 0; i < this.forest.trees.length; i++) {
-      const tree = this.forest.trees[i];
-      if (tree.state !== "standing") continue;
-      const d = Math.hypot(tree.position.x - pos.x, tree.position.y - pos.y);
-      if (d < nearestDist) {
-        nearestDist = d;
-        nearestIdx = i;
-      }
+  private detectInteract(): void {
+    const pos = { x: this.rig.circle.x, y: this.rig.circle.y };
+    const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+      Math.hypot(a.x - b.x, a.y - b.y);
+    const range = 70;
+
+    let next: PendingInteract = null;
+    let prompt: string | null = null;
+    if (dist(pos, RESTAURANT_DOOR) <= range) {
+      next = { kind: "enter-restaurant" };
+      prompt = "按 F 进入餐厅";
+    } else if (dist(pos, LUMBER_DOOR) <= range) {
+      next = { kind: "enter-lumber" };
+      prompt = "按 F 进入木材店";
+    } else if (dist(pos, PHONE_STORE_POS) <= range) {
+      next = { kind: "phone-shop" };
+      prompt = this.session.inventory.hasPhone ? "按 F 进入手机店" : "按 F 买手机";
     }
-    if (nearestIdx >= 0 && nearestDist <= this.mechanics.interactRange + 40) {
-      const tree = this.forest.trees[nearestIdx];
-      const result = chopTree(
-        tree,
-        this.mechanics.chopDamagePerSecond * (this.lastDeltaMs / 1000),
-      );
-      if (result.completed) {
-        addLogs(this.inventory, result.logDropped);
-        scheduleRegrow(tree, this.gameClock);
-        this.bridge.showToast(`获得木材 x${result.logDropped}`, "🪵");
-        this.publishSnapshot();
-      }
-    }
+    this.pendingInteract = next;
+    this.bridgePatchPrompt(prompt);
   }
 
   update(_time: number, _delta: number): void {
-    this.lastDeltaMs = this.game.loop.delta;
-    this.gameClock += this.lastDeltaMs / 1000;
-    tickForest(this.forest, this.gameClock);
+    this.session.tick(this.game.loop.delta);
 
-    // chop uses pointer, which is GUI-safe
-    this.updateChop();
-
-    const dx =
-      (this.keys.moveRight?.isDown ? 1 : 0) -
-      (this.keys.moveLeft?.isDown ? 1 : 0);
-    const dy =
-      (this.keys.moveDown?.isDown ? 1 : 0) -
-      (this.keys.moveUp?.isDown ? 1 : 0);
-
-    let vx = 0;
-    let vy = 0;
-    if (dx !== 0 || dy !== 0) {
-      const len = Math.hypot(dx, dy);
-      vx = (dx / len) * this.playerSpeed;
-      vy = (dy / len) * this.playerSpeed;
+    // Chop with held mouse button
+    const pointer = this.input.activePointer;
+    if (pointer.isDown && pointer.button === 0) {
+      this.session.chopAt(
+        { x: this.rig.circle.x, y: this.rig.circle.y },
+        this.game.loop.delta / 1000,
+      );
     }
-    this.playerBody.setVelocity(vx, vy);
 
-    this.playerShadow.setPosition(this.player.x + 2, this.player.y + 12);
-    this.playerFace.setPosition(this.player.x, this.player.y - 1);
+    movePlayerRig(this.rig);
+    syncPlayerVisuals(this.rig);
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.interact)) {
+    if (Phaser.Input.Keyboard.JustDown(this.rig.keys.interact)) {
       this.pressInteract();
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.openInventory)) {
+    if (Phaser.Input.Keyboard.JustDown(this.rig.keys.openInventory)) {
       this.bridge.patch({
         inventoryOpen: !this.bridge.getSnapshot().inventoryOpen,
       });
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.openSettings)) {
+    if (Phaser.Input.Keyboard.JustDown(this.rig.keys.openSettings)) {
       this.bridge.patch({
         settingsOpen: !this.bridge.getSnapshot().settingsOpen,
       });
     }
 
     this.detectInteract();
-    this.syncSeat();
     this.renderTrees();
-    this.tickOrderDelivery();
 
-    const area = areaAt({ x: this.player.x, y: this.player.y });
+    const area = areaAt({ x: this.rig.circle.x, y: this.rig.circle.y });
     const label = area ? area.label : "野外地带";
     if (label !== this.lastAreaLabel) {
       this.lastAreaLabel = label;
@@ -654,16 +374,8 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
-  private syncSeat(): void {
-    if (this.seatedTable === null || !this.seatGameObject) return;
-    const table = TABLE_POSITIONS[this.seatedTable];
-    this.seatGameObject.x = table.x;
-    this.seatGameObject.y = table.y + Math.sin(this.waiterWiggle) * 2;
-    this.waiterWiggle += 0.05;
-  }
-
   private renderTrees(): void {
-    for (const tree of this.forest.trees) {
+    for (const tree of this.session.forest.trees) {
       const existing = this.treeSprites.get(tree.id);
       const wantStanding = tree.state === "standing";
       if (!existing || existing.container.active !== wantStanding) {
@@ -677,69 +389,5 @@ export class MainScene extends Phaser.Scene {
         this.treeSprites.set(tree.id, { container, graphic });
       }
     }
-  }
-
-  private tickOrderDelivery(): void {
-    const changed = tickOrders(this.orders, this.gameClock);
-    let delivered = false;
-    for (const order of changed) {
-      if (order.status !== "ready") continue;
-      this.deliverToTable(order);
-      delivered = true;
-    }
-    if (delivered) {
-      this.publishSnapshot();
-    }
-  }
-
-  private deliverToTable(order: Order): void {
-    const dish = getDish(order.dishId)!;
-    const table = TABLE_POSITIONS[this.seatedTable ?? 0];
-    const emoji = this.add.text(
-      COUNTER_POS.x,
-      COUNTER_POS.y - 20,
-      dish.emoji,
-      { fontSize: "26px" },
-    );
-    this.tweens.add({
-      targets: emoji,
-      x: table.x,
-      y: table.y - 26,
-      duration: 900,
-      ease: "Quad.easeInOut",
-      onComplete: () => {
-        emoji.destroy();
-        this.recordCollection(dish);
-      },
-    });
-    serveOrder(order);
-  }
-
-  private recordCollection(dish: Dish): void {
-    recordEat({
-      collection: this.collection,
-      dishId: dish.id,
-      nowSeconds: this.gameClock,
-    });
-    this.bridge.showToast(`上菜啦：${dish.name}，请享用！`, dish.emoji);
-    this.publishSnapshot();
-  }
-
-  private publishSnapshot(): void {
-    if (!this.bridge) return;
-    const orders: OrderView[] = this.orders.map((o) => ({
-      id: o.id,
-      dish: getDish(o.dishId)!,
-      status: o.status,
-      placedAt: o.placedAtSeconds,
-      readyAt: o.readyAtSeconds,
-    }));
-    this.bridge.updateSnapshot({
-      logs: this.inventory.logs,
-      money: this.inventory.money,
-      hasPhone: this.inventory.hasPhone,
-      orders,
-      collection: Object.values(this.collection.entries),
-    });
   }
 }

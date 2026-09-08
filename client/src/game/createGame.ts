@@ -1,11 +1,14 @@
 import Phaser from "phaser";
 import { MainScene, AREA_CHANGE_EVENT } from "./MainScene";
+import { RestaurantScene } from "./RestaurantScene";
+import { LumberYardScene } from "./LumberYardScene";
 import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
+import { GameSession, SESSION_KEY } from "./session";
 import { DEFAULT_BINDINGS, makeAudioSettings } from "shared";
 
 export function createGame(
   parent: HTMLElement,
-  bridge: GameBridge,
+  session: GameSession,
 ): Phaser.Game {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -20,17 +23,19 @@ export function createGame(
         debug: false,
       },
     },
-    scene: [MainScene],
+    scene: [MainScene, RestaurantScene, LumberYardScene],
   });
-  game.registry.set(GAME_BRIDGE_KEY, bridge);
+  game.registry.set(GAME_BRIDGE_KEY, session.bridge);
+  game.registry.set(SESSION_KEY, session);
   return game;
 }
 
-export function makeDefaultBridge(): GameBridge {
-  return new GameBridge({
+export function makeDefaultSession(): GameSession {
+  const bridge = new GameBridge({
     bindings: { ...DEFAULT_BINDINGS },
     audio: makeAudioSettings(),
   });
+  return new GameSession(bridge);
 }
 
 /**
@@ -46,7 +51,6 @@ export function onAreaChange(
     attachToScene(scene, listener);
     return () => detachFromScene(scene!, listener);
   }
-  // Scene not yet registered; wait for READY then attach.
   const onReady = () => {
     scene = game.scene.getScene("MainScene") as Phaser.Scene | null;
     if (scene) attachToScene(scene, listener);

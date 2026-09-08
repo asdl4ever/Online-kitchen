@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import {
   createGame,
   destroyGame,
-  makeDefaultBridge,
+  makeDefaultSession,
   onAreaChange,
 } from "../game/createGame";
-import { GameBridge } from "../game/bridge";
+import type { GameBridge } from "../game/bridge";
 import { Hud } from "./Hud";
 import { BackpackOverlay } from "./BackpackOverlay";
 import { MenuOverlay } from "./MenuOverlay";
@@ -23,11 +23,11 @@ export function GameView() {
 
   useEffect(() => {
     if (!containerRef.current) return;
-    const b = makeDefaultBridge();
-    const game = createGame(containerRef.current, b);
+    const session = makeDefaultSession();
+    const game = createGame(containerRef.current, session);
     const onArea = (label: string) => setAreaLabel(label);
     const off = onAreaChange(game, onArea);
-    setBridge(b);
+    setBridge(session.bridge);
     return () => {
       off();
       destroyGame(game);
