@@ -17,9 +17,12 @@
 | 项 | 选择 |
 |---|---|
 | 平台 | 网页浏览器,即点即玩 |
-| 客户端 | Phaser 3(2D)+ TypeScript |
-| 服务端 | Node.js + WebSocket 权威服务器 |
+| 客户端 | Phaser 3(2D)+ TypeScript,渲染游戏画面 |
+| UI 层 | React 以 DOM overlay 覆盖在 Phaser 画布上(HUD/背包/菜单/设置弹窗) |
+| 服务端 | Node.js + WebSocket(原生 ws / Socket.IO)权威服务器 |
+| 共享规则 | 游戏规则(砍树计价/金钱/菜单/订单)抽为纯 TS `shared/` 模块,server 与 client 复用 |
 | 联机形态 | host 建房 + 房间码加入,2-4 人;游戏规则由服务器裁决 |
+| 工程 | Vite + TS + Vitest 测试 + npm workspaces(`client/` `server/` `shared/`) |
 | 美术 | 简洁几何风:圆形玩家 + 色块建筑 + 贴图树;可使用 emoji 丰富表现 |
 
 ## 4. 世界观与地图
