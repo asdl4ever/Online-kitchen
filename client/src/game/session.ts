@@ -29,6 +29,9 @@ import {
 export const SESSION_KEY = "game-session";
 
 export interface ChopOutcome {
+  treeId: string;
+  /** 0..1 how fully the tree has been chopped. */
+  progress: number;
   completed: boolean;
   logDropped: number;
 }
@@ -42,9 +45,9 @@ function makeForestTrees(): ForestState["trees"] {
   const forestArea = AREAS.find((a) => a.kind === "forest")!;
   const points = generateForestTrees(forestArea.bounds, {
     seed: 20260908,
-    count: 32,
-    minDistance: 46,
-    clusters: 4,
+    count: 26,
+    minDistance: 68,
+    clusters: 3,
   });
   return points.map((p, i) =>
     makeTree(`tree-${i}`, p, { maxHp: 6, logDrop: 1, regrowSeconds: 12 }),
@@ -98,13 +101,19 @@ export class GameSession {
     }
     if (!nearest) return null;
     const result = chopTree(nearest, CHOP_DPS * dtSeconds);
+    const progress = 1 - nearest.hp / nearest.maxHp;
     if (result.completed) {
       addLogs(this.inventory, result.logDropped);
       scheduleRegrow(nearest, this.gameClock);
       this.bridge.showToast(`获得木材 x${result.logDropped}`, "🪵");
       this.publishSnapshot();
     }
-    return { completed: result.completed, logDropped: result.logDropped };
+    return {
+      treeId: nearest.id,
+      progress,
+      completed: result.completed,
+      logDropped: result.logDropped,
+    };
   }
 
   sellAllLogs(): void {

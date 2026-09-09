@@ -32,7 +32,7 @@ export const AREAS: Area[] = [
     id: "forest",
     kind: "forest",
     label: "树林",
-    bounds: { x: 520, y: -660, width: 330, height: 280 },
+    bounds: { x: 480, y: -680, width: 380, height: 320 },
   },
   {
     id: "lumber-yard",

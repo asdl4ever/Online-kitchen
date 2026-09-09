@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { AREAS, areaAt, WORLD_BOUNDS, type Area } from "shared";
 import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
-import { SESSION_KEY, type GameSession } from "./session";
+import { SESSION_KEY, type GameSession, type ChopOutcome } from "./session";
 import {
   createPlayerRig,
   movePlayerRig,
@@ -60,6 +60,12 @@ export class MainScene extends Phaser.Scene {
   private lastAreaLabel: string | undefined;
   private pendingInteract: PendingInteract = null;
   private treeSprites = new Map<string, TreeSprite>();
+  private axeSwing: Phaser.GameObjects.Text | null = null;
+  private chopBar: {
+    bg: Phaser.GameObjects.Rectangle;
+    fill: Phaser.GameObjects.Rectangle;
+    treeId: string;
+  } | null = null;
 
   constructor() {
     super("MainScene");
@@ -117,14 +123,19 @@ export class MainScene extends Phaser.Scene {
     for (const area of AREAS) {
       const cx = area.bounds.x + area.bounds.width / 2;
       const cy = area.bounds.y + area.bounds.height / 2;
-      this.add.rectangle(
-        cx,
-        cy,
-        area.bounds.width,
-        area.bounds.height,
-        AREA_COLORS[area.kind],
-        0.8,
-      );
+      // The forest gets an organic blended floor instead of a hard block.
+      if (area.kind === "forest") {
+        this.drawForestFloor(area);
+      } else {
+        this.add.rectangle(
+          cx,
+          cy,
+          area.bounds.width,
+          area.bounds.height,
+          AREA_COLORS[area.kind],
+          0.8,
+        );
+      }
       // Buildings already carry a sign with the same name — skip those
       // areas to avoid duplicated titles.
       if (!AREAS_WITH_BUILDING_SIGN.includes(area.kind)) {
@@ -173,8 +184,39 @@ export class MainScene extends Phaser.Scene {
     vRoad(PHONE_STORE_POS.x, 16, PHONE_STORE_POS.y - 30);
   }
 
-  private drawAreaPlaque(area: Area): void {
-    const cx = area.bounds.x + area.bounds.width / 2;
+    /**
+   * The forest blends into the meadow: a faint core plus layered organic
+   * patches that spill past the edges and fade outwards.
+   */
+  private drawForestFloor(area: Area): void {
+    const b = area.bounds;
+    this.add.rectangle(
+      b.x + b.width / 2,
+      b.y + b.height / 2,
+      b.width,
+      b.height,
+      0x3f8f3f,
+      0.3,
+    );
+
+    let seed = 909;
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    for (let i = 0; i < 80; i++) {
+      const x = b.x - 100 + rand() * (b.width + 200);
+      const y = b.y - 100 + rand() * (b.height + 200);
+      const inside =
+        x > b.x - 24 && x < b.x + b.width + 24 &&
+        y > b.y - 24 && y < b.y + b.height + 24;
+      const r = 26 + rand() * 50;
+      const color = rand() > 0.45 ? 0x3f8f3f : 0x5fae5f;
+      this.add.ellipse(x, y, r * 2, r * 1.4, color, inside ? 0.3 : 0.14);
+    }
+  }
+
+  private drawAreaPlaque(area: Area): void {    const cx = area.bounds.x + area.bounds.width / 2;
     const top = area.bounds.y + 18;
     const label = `${AREA_PLAQUE_EMOJI[area.kind] ?? "📍"} ${area.label}`;
     const text = this.add
@@ -427,12 +469,15 @@ export class MainScene extends Phaser.Scene {
 
     // Left click uses the selected hotbar item; the axe chops trees.
     const pointer = this.input.activePointer;
-    if (pointer.isDown && pointer.button === 0 && this.isSelectedAxe()) {
-      this.session.chopAt(
+    const chopping = pointer.isDown && pointer.button === 0 && this.isSelectedAxe();
+    let outcome: ChopOutcome | null = null;
+    if (chopping) {
+      outcome = this.session.chopAt(
         { x: this.rig.circle.x, y: this.rig.circle.y },
         this.game.loop.delta / 1000,
       );
     }
+    this.updateChopVisuals(chopping, outcome, this.time.now);
 
     movePlayerRig(this.rig);
     syncPlayerVisuals(this.rig);
@@ -465,6 +510,72 @@ export class MainScene extends Phaser.Scene {
   private isSelectedAxe(): boolean {
     const ui = this.bridge.getSnapshot();
     return ui.hotbar[ui.selectedSlot] === "axe";
+  }
+
+  private static readonly BAR_WIDTH = 50;
+
+  /**
+   * While chopping: swing the axe next to the player and draw a progress
+   * bar above the tree currently being chopped.
+   */
+  private updateChopVisuals(
+    chopping: boolean,
+    outcome: ChopOutcome | null,
+    nowMs: number,
+  ): void {
+    // Axe swing
+    if (chopping) {
+      if (!this.axeSwing) {
+        this.axeSwing = this.add
+          .text(0, 0, "🪓", { fontSize: "28px" })
+          .setOrigin(0.5, 0.9)
+          .setDepth(6);
+      }
+      const phase = nowMs * 0.02;
+      this.axeSwing.setPosition(
+        this.rig.circle.x + 17,
+        this.rig.circle.y - 2 + Math.sin(phase) * 2.5,
+      );
+      this.axeSwing.setRotation(Math.sin(phase) * 0.85 - 0.35);
+    } else if (this.axeSwing) {
+      this.axeSwing.destroy();
+      this.axeSwing = null;
+    }
+
+    // Progress bar above the target tree
+    const tree =
+      chopping && outcome
+        ? this.session.forest.trees.find((t) => t.id === outcome.treeId)
+        : undefined;
+    if (tree) {
+      if (!this.chopBar || this.chopBar.treeId !== tree.id) {
+        this.chopBar?.bg.destroy();
+        this.chopBar?.fill.destroy();
+        const bg = this.add
+          .rectangle(tree.position.x, tree.position.y - 38, MainScene.BAR_WIDTH + 4, 11, 0x3d2b1f, 0.85)
+          .setDepth(7);
+        const fill = this.add
+          .rectangle(
+            tree.position.x - MainScene.BAR_WIDTH / 2,
+            tree.position.y - 38,
+            Math.max(2, MainScene.BAR_WIDTH * outcome!.progress),
+            6,
+            0x8bd44a,
+          )
+          .setOrigin(0, 0.5)
+          .setDepth(8);
+        this.chopBar = { bg, fill, treeId: tree.id };
+      } else {
+        this.chopBar.fill.width = Math.max(
+          2,
+          MainScene.BAR_WIDTH * outcome!.progress,
+        );
+      }
+    } else if (this.chopBar) {
+      this.chopBar.bg.destroy();
+      this.chopBar.fill.destroy();
+      this.chopBar = null;
+    }
   }
 
   private renderTrees(): void {
