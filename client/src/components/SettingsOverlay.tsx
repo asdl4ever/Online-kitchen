@@ -17,6 +17,8 @@ const ACTION_LABELS: Record<string, string> = {
 export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
   const state = useGameState(bridge);
   const [capturing, setCapturing] = useState<string | null>(null);
+  const [mpName, setMpName] = useState("");
+  const [joinCode, setJoinCode] = useState("");
 
   if (!state.settingsOpen) return null;
 
@@ -51,6 +53,8 @@ export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
   };
 
   const rows = Object.entries(state.bindings);
+  const inRoom = !!state.roomCode;
+  const name = mpName.trim() || "游客";
 
   return (
     <div className="overlay-backdrop" onClick={() => bridge.send({ type: "toggle-settings" })}>
@@ -114,6 +118,86 @@ export function SettingsOverlay({ bridge }: { bridge: GameBridge }) {
               </li>
             ))}
           </ul>
+        </section>
+
+        <section>
+          <h3>🌐 多人联机</h3>
+          {inRoom ? (
+            <div className="mp-room-info">
+              <p className="mp-room-code">
+                房间码：<b>{state.roomCode}</b>
+                <button
+                  className="btn btn-sm"
+                  onClick={() => navigator.clipboard?.writeText(state.roomCode!)}
+                >
+                  复制
+                </button>
+              </p>
+              <p className="mp-room-host">
+                {state.isHost ? "你是房主 👑" : "你是玩家"}
+              </p>
+              <div className="mp-player-list">
+                {state.roomPlayers.map((p) => (
+                  <span key={p.id} className="mp-player-chip">
+                    🟢 {p.name}
+                  </span>
+                ))}
+                <span className="mp-player-chip mp-player-me">
+                  🟡 我
+                </span>
+              </div>
+              <button
+                className="btn btn-ghost"
+                onClick={() => bridge.send({ type: "mp-leave-room" })}
+              >
+                离开房间
+              </button>
+            </div>
+          ) : (
+            <div className="mp-join-form">
+              <input
+                className="mp-input"
+                type="text"
+                placeholder="你的昵称"
+                maxLength={12}
+                value={mpName}
+                onChange={(e) => setMpName(e.target.value)}
+              />
+              <div className="mp-row">
+                <button
+                  className="btn"
+                  onClick={() => bridge.send({ type: "mp-create-room", name })}
+                >
+                  创建房间
+                </button>
+              </div>
+              <div className="mp-row">
+                <input
+                  className="mp-input mp-code-input"
+                  type="text"
+                  placeholder="输入房间码"
+                  maxLength={4}
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && joinCode.length >= 4) {
+                      bridge.send({ type: "mp-join-room", code: joinCode, name });
+                    }
+                  }}
+                />
+                <button
+                  className="btn"
+                  disabled={joinCode.length < 4}
+                  onClick={() => bridge.send({ type: "mp-join-room", code: joinCode, name })}
+                >
+                  加入
+                </button>
+              </div>
+              <p className="panel-hint">
+                💡 创建房间后把房间码分享给好友，最多 4 人同屏
+              </p>
+            </div>
+          )}
         </section>
 
         <button className="btn btn-ghost" onClick={() => bridge.send({ type: "toggle-settings" })}>

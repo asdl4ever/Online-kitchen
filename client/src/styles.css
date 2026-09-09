@@ -939,3 +939,102 @@ body,
   font-size: 26px;
   filter: drop-shadow(0 2px 3px rgba(74, 50, 34, 0.3));
 }
+
+/* ============ 多人联机 ============ */
+.chip-room {
+  background: linear-gradient(180deg, #6cb7ff, #3d84cc);
+  color: #fff;
+  font-size: 13px;
+  gap: 8px;
+}
+
+.chip-room-count {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mp-join-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mp-input {
+  padding: 9px 14px;
+  border: 3px solid var(--outline);
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: inherit;
+  font-weight: 700;
+  background: #fffdf4;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.mp-input:focus {
+  border-color: var(--accent);
+}
+
+.mp-code-input {
+  width: 120px;
+  text-transform: uppercase;
+  letter-spacing: 4px;
+  text-align: center;
+  font-size: 18px;
+}
+
+.mp-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.mp-room-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mp-room-code {
+  font-size: 16px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mp-room-code b {
+  font-size: 22px;
+  letter-spacing: 4px;
+  color: var(--accent-deep);
+}
+
+.mp-room-host {
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.mp-player-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mp-player-chip {
+  background: #f0fff0;
+  border: 3px solid var(--green-deep);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.mp-player-me {
+  background: #fff8e6;
+  border-color: #e2a400;
+}

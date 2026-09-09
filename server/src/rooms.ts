@@ -6,6 +6,8 @@ export interface Room {
   players: string[];
   hostId: string;
   createdAt: number;
+  positions: Map<string, { x: number; y: number }>;
+  names: Map<string, string>;
 }
 
 function randomCode(): string {
@@ -37,6 +39,8 @@ export class RoomManager {
       players: [playerId],
       hostId: playerId,
       createdAt: Date.now(),
+      positions: new Map(),
+      names: new Map(),
     };
     this.rooms.set(code, room);
     return room;
@@ -62,6 +66,8 @@ export class RoomManager {
     const room = this.rooms.get(code);
     if (!room) return undefined;
     room.players = room.players.filter((id) => id !== playerId);
+    room.positions.delete(playerId);
+    room.names.delete(playerId);
     if (room.players.length === 0) {
       this.rooms.delete(code);
       return room;

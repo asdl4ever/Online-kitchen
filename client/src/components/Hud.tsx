@@ -33,6 +33,12 @@ export function Hud({
         <span className="chip chip-area">
           {AREA_EMOJI[areaLabel] ?? "📍"} {areaLabel}
         </span>
+        {state.roomCode && (
+          <span className="chip chip-room">
+            🌐 {state.roomCode}
+            <span className="chip-room-count">{state.roomPlayers.length + 1}人</span>
+          </span>
+        )}
       </div>
       <div className="hud-resources">
         <span className="chip" title="木材">

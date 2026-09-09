@@ -56,6 +56,7 @@ import {
   type BridgeCommand,
   type OrderView,
 } from "./bridge";
+import { Network, type RemotePlayer } from "./network";
 import { addMoney } from "shared";
 
 export const SESSION_KEY = "game-session";
@@ -94,6 +95,7 @@ function makeForestTrees(): ForestState["trees"] {
  */
 export class GameSession {
   readonly bridge: GameBridge;
+  readonly network: Network;
   readonly inventory = makeInventory();
   readonly orders: Order[] = [];
   readonly collection = makeFoodCollection();
@@ -114,6 +116,7 @@ export class GameSession {
   furnishings: Record<string, (string | null)[]> = {};
   ownedVehicleIds: string[] = [];
   activeVehicleId: string | null = null;
+  remotePlayers = new Map<string, RemotePlayer>();
 
   private orderSeq = 0;
   private petSeq = 0;
@@ -121,8 +124,10 @@ export class GameSession {
 
   constructor(bridge: GameBridge, forest?: ForestState) {
     this.bridge = bridge;
+    this.network = new Network();
     this.forest = forest ?? { trees: makeForestTrees() };
     this.registerCommands();
+    this.setupNetwork();
   }
 
   /** Movement speed multiplier from the active vehicle. */
@@ -136,6 +141,78 @@ export class GameSession {
   comfort(): number {
     if (!this.activeHouseId) return 0;
     return comfortOf(this.furnishings[this.activeHouseId] ?? []);
+  }
+
+  /* ============ 联机 ============ */
+
+  private setupNetwork(): void {
+    this.network.on((event) => {
+      switch (event.type) {
+        case "connected":
+          this.bridge.patch({ myPlayerId: event.playerId });
+          break;
+        case "room-joined":
+          this.remotePlayers.clear();
+          for (const p of event.players) {
+            if (p.id !== event.you) {
+              this.remotePlayers.set(p.id, { ...p });
+            }
+          }
+          this.bridge.patch({
+            roomCode: event.code,
+            roomPlayers: event.players.filter((p) => p.id !== event.you),
+            isHost: event.hostId === event.you,
+          });
+          this.bridge.showToast(`已加入房间 ${event.code}`, "🌐");
+          break;
+        case "room-left":
+          this.remotePlayers.clear();
+          this.bridge.patch({
+            roomCode: null,
+            roomPlayers: [],
+            isHost: false,
+          });
+          break;
+        case "player-joined":
+          this.remotePlayers.set(event.id, {
+            id: event.id,
+            name: event.name,
+            x: 0,
+            y: 0,
+          });
+          this.publishMultiplayerState();
+          this.bridge.showToast(`${event.name} 加入了房间`, "👋");
+          break;
+        case "player-left": {
+          const name = this.remotePlayers.get(event.id)?.name ?? "???";
+          this.remotePlayers.delete(event.id);
+          this.publishMultiplayerState();
+          this.bridge.showToast(`${name} 离开了房间`, "👋");
+          break;
+        }
+        case "player-moved": {
+          const rp = this.remotePlayers.get(event.id);
+          if (rp) {
+            rp.x = event.x;
+            rp.y = event.y;
+          }
+          break;
+        }
+        case "error":
+          this.bridge.showToast(`连接错误: ${event.message}`, "❌");
+          break;
+      }
+    });
+  }
+
+  private publishMultiplayerState(): void {
+    const players = Array.from(this.remotePlayers.values()).map((p) => ({
+      id: p.id,
+      name: p.name,
+      x: p.x,
+      y: p.y,
+    }));
+    this.bridge.patch({ roomPlayers: players });
   }
 
   /* ============ 钓鱼 ============ */
@@ -747,6 +824,11 @@ export class GameSession {
       "open-reaction",
       "close-reaction",
       "dice-bet",
+      "toggle-multiplayer",
+      "close-multiplayer",
+      "mp-create-room",
+      "mp-join-room",
+      "mp-leave-room",
     ] as const) {
       this.bridge.on(type, handler);
     }
@@ -937,6 +1019,23 @@ export class GameSession {
         break;
       case "dice-bet":
         this.diceBet(c.choice, c.bet);
+        break;
+      case "toggle-multiplayer":
+        this.bridge.patch({ multiplayerOpen: !this.bridge.getSnapshot().multiplayerOpen });
+        break;
+      case "close-multiplayer":
+        this.bridge.patch({ multiplayerOpen: false });
+        break;
+      case "mp-create-room":
+        this.network.createRoom(c.name);
+        this.bridge.patch({ multiplayerOpen: false });
+        break;
+      case "mp-join-room":
+        this.network.joinRoom(c.code, c.name);
+        this.bridge.patch({ multiplayerOpen: false });
+        break;
+      case "mp-leave-room":
+        this.network.leaveRoom();
         break;
     }
   }

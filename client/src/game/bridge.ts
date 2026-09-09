@@ -60,6 +60,13 @@ export interface HousePanelView {
   owned: boolean;
 }
 
+export interface RemotePlayerView {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+}
+
 export interface GameUiState {
   prompt: string | null;
   inventoryOpen: boolean;
@@ -105,6 +112,11 @@ export interface GameUiState {
   comfort: number;
   diceResult: { dice: [number, number]; sum: number; payout: number; bet: number } | null;
   reactionOpen: boolean;
+  multiplayerOpen: boolean;
+  roomCode: string | null;
+  roomPlayers: RemotePlayerView[];
+  isHost: boolean;
+  myPlayerId: string | null;
 }
 
 export type BridgeCommand =
@@ -165,7 +177,12 @@ export type BridgeCommand =
   | { type: "open-reaction" }
   | { type: "close-reaction" }
   | { type: "dice-bet"; choice: "big" | "small"; bet: number }
-  | { type: "click-position"; x: number; y: number };
+  | { type: "click-position"; x: number; y: number }
+  | { type: "toggle-multiplayer" }
+  | { type: "close-multiplayer" }
+  | { type: "mp-create-room"; name: string }
+  | { type: "mp-join-room"; code: string; name: string }
+  | { type: "mp-leave-room" };
 
 export interface CommandResult {
   ok: boolean;
@@ -239,6 +256,11 @@ export class GameBridge {
       comfort: 0,
       diceResult: null,
       reactionOpen: false,
+      multiplayerOpen: false,
+      roomCode: null,
+      roomPlayers: [],
+      isHost: false,
+      myPlayerId: null,
     };
   }
 

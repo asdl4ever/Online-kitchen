@@ -31,6 +31,7 @@ import {
   ENTRY_RETURN_KEY,
 } from "./RoomScene";
 import type { TreeSprite } from "./types";
+import type { RemotePlayerView } from "./bridge";
 
 const AREA_COLORS: Record<Area["kind"], number> = {
   spawn: 0x7ec850,
@@ -142,6 +143,11 @@ export class MainScene extends Phaser.Scene {
   private petTrail!: PetTrail;
   private vehicleSprite: Phaser.GameObjects.Text | null = null;
   private posBroadcastTimer = 0;
+  private ghostPlayers = new Map<string, {
+    circle: Phaser.GameObjects.Arc;
+    shadow: Phaser.GameObjects.Ellipse;
+    nameText: Phaser.GameObjects.Text;
+  }>();
 
   constructor() {
     super("MainScene");
@@ -968,7 +974,14 @@ export class MainScene extends Phaser.Scene {
       if (!prev || prev.x !== p.x || prev.y !== p.y) {
         this.bridge.patch({ playerPos: p });
       }
+      // Send position to network if in a room
+      if (this.session.network.roomCode) {
+        this.session.network.sendPosition(this.rig.circle.x, this.rig.circle.y);
+      }
     }
+
+    // Update ghost players
+    this.syncGhostPlayers();
 
     if (Phaser.Input.Keyboard.JustDown(this.rig.keys.interact)) {
       this.pressInteract();
@@ -1089,6 +1102,54 @@ export class MainScene extends Phaser.Scene {
           : this.add.text(0, 0, "🪵", { fontSize: "22px" }).setOrigin(0.5);
         container.add(graphic);
         this.treeSprites.set(tree.id, { container, graphic });
+      }
+    }
+  }
+
+  private syncGhostPlayers(): void {
+    const players = this.bridge.getSnapshot().roomPlayers;
+    const seen = new Set<string>();
+
+    for (const rp of players) {
+      seen.add(rp.id);
+      let ghost = this.ghostPlayers.get(rp.id);
+
+      if (!ghost) {
+        const circle = this.add.circle(0, 0, 16, 0x5cb8ff, 0.85)
+          .setStrokeStyle(3, 0x2a6eb5)
+          .setDepth(4);
+        const shadow = this.add.ellipse(0, 18, 26, 8, 0x3d2b1f, 0.2)
+          .setDepth(3);
+        const nameText = this.add.text(0, -26, rp.name, {
+          fontSize: "12px",
+          color: "#ffffff",
+          fontStyle: "bold",
+          backgroundColor: "#2a6eb5cc",
+          padding: { x: 6, y: 2 },
+        }).setOrigin(0.5).setDepth(5);
+        ghost = { circle, shadow, nameText };
+        this.ghostPlayers.set(rp.id, ghost);
+      }
+
+      // Lerp position
+      const dx = rp.x - ghost.circle.x;
+      const dy = rp.y - ghost.circle.y;
+      const lerp = 0.15;
+      ghost.circle.x += dx * lerp;
+      ghost.circle.y += dy * lerp;
+      ghost.shadow.x = ghost.circle.x;
+      ghost.shadow.y = ghost.circle.y + 18;
+      ghost.nameText.x = ghost.circle.x;
+      ghost.nameText.y = ghost.circle.y - 26;
+    }
+
+    // Remove ghosts for players who left
+    for (const [id, ghost] of this.ghostPlayers) {
+      if (!seen.has(id)) {
+        ghost.circle.destroy();
+        ghost.shadow.destroy();
+        ghost.nameText.destroy();
+        this.ghostPlayers.delete(id);
       }
     }
   }
