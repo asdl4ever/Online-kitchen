@@ -5,7 +5,7 @@ import {
   RESTAURANT_SCENE_KEY,
   type RoomPendingInteract,
 } from "./RoomScene";
-import { syncPlayerVisuals } from "./player";
+import { syncPlayerVisuals, teleportPlayer } from "./player";
 
 const COUNTER = { x: 320, y: 120 };
 const TABLES = [
@@ -108,12 +108,17 @@ export class RestaurantScene extends RoomScene {
   }
 
   protected onInteract(): void {
+    // While seated, F always stands up first.
+    if (this.session.seatedTable !== null) {
+      this.standUp();
+      return;
+    }
     switch (this.pending?.kind) {
       case "counter":
         this.session.bridge.patch({ menuOpen: true });
         break;
       case "seat":
-        this.toggleSeat(this.pending.tableIndex);
+        this.sitDown(this.pending.tableIndex);
         break;
       case "exit":
         this.exitRoom();
@@ -121,14 +126,19 @@ export class RestaurantScene extends RoomScene {
     }
   }
 
-  private toggleSeat(tableIndex: number): void {
-    if (this.session.seatedTable === tableIndex) {
-      this.session.standUp();
-      this.clearSeatBubble();
-      return;
-    }
+  private sitDown(tableIndex: number): void {
     this.session.sitAt(tableIndex);
+    const table = TABLES[tableIndex];
+    // Snap the ball onto the chair and lock movement until F.
+    teleportPlayer(this.rig, table.x, table.y + 40);
+    this.movementLocked = true;
     this.placeSeatBubble(tableIndex);
+  }
+
+  private standUp(): void {
+    this.session.standUp();
+    this.movementLocked = false;
+    this.clearSeatBubble();
   }
 
   private placeSeatBubble(tableIndex: number): void {
@@ -179,6 +189,6 @@ export class RestaurantScene extends RoomScene {
         this.delivering = false;
       },
     });
-    syncPlayerVisuals(this.rig);
+    syncPlayerVisuals(this.rig, this.input.activePointer);
   }
 }

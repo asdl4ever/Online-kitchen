@@ -13,3 +13,4 @@ export * from "./economy";
 export * from "./menu";
 export * from "./collection";
 export * from "./settings";
+export * from "./casino";

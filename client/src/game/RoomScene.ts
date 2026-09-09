@@ -11,6 +11,8 @@ import {
 export const MAIN_SCENE_KEY = "MainScene";
 export const RESTAURANT_SCENE_KEY = "RestaurantScene";
 export const LUMBER_YARD_SCENE_KEY = "LumberYardScene";
+export const ARCADE_SCENE_KEY = "ArcadeScene";
+export const CASINO_SCENE_KEY = "CasinoScene";
 
 /** Registry key for the map position to drop the player at after exiting. */
 export const ENTRY_RETURN_KEY = "entry-return";
@@ -39,6 +41,8 @@ export abstract class RoomScene extends Phaser.Scene {
   protected layout!: RoomLayout;
   protected pending: RoomPendingInteract = null;
   protected roomLabel = "";
+  /** While seated the ball is fixed to the chair; F stands up. */
+  protected movementLocked = false;
 
   protected abstract getLayout(): RoomLayout;
   protected abstract drawRoom(): void;
@@ -74,8 +78,12 @@ export abstract class RoomScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.session.tick(delta);
 
-    movePlayerRig(this.rig);
-    syncPlayerVisuals(this.rig);
+    if (this.movementLocked) {
+      this.rig.body.setVelocity(0, 0);
+    } else {
+      movePlayerRig(this.rig);
+    }
+    syncPlayerVisuals(this.rig, this.input.activePointer);
 
     if (Phaser.Input.Keyboard.JustDown(this.rig.keys.interact)) {
       this.onInteract();
@@ -99,6 +107,7 @@ export abstract class RoomScene extends Phaser.Scene {
     if (this.session.seatedTable !== null) {
       this.session.standUp(true);
     }
+    this.movementLocked = false;
     this.bridgePatchPrompt(null);
     this.scene.stop();
     this.scene.wake(MAIN_SCENE_KEY);

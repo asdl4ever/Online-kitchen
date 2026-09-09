@@ -8,6 +8,8 @@ export const STARTING_LOGS = 0;
 export const STARTING_MONEY = 0;
 export const WOOD_PRICE_PER_LOG = 10;
 export const PHONE_PRICE = 100;
+/** 9 wood slots x 9 per stack. */
+export const MAX_LOGS = 81;
 
 export function makeInventory(
   overrides: Partial<Inventory> = {},
@@ -59,3 +61,7 @@ export function spendMoney(inv: Inventory, price: number): boolean {
 export function addMoney(inv: Inventory, amount: number): void {
   inv.money = Math.max(0, inv.money + amount);
 }
+
+/** Arcade minigame economy. */
+export const ARCADE_ENTRY_FEE = 20;
+export const ARCADE_REWARD_PER_HIT = 2;

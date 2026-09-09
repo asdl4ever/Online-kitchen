@@ -2,6 +2,8 @@ import Phaser from "phaser";
 import { MainScene, AREA_CHANGE_EVENT } from "./MainScene";
 import { RestaurantScene } from "./RestaurantScene";
 import { LumberYardScene } from "./LumberYardScene";
+import { ArcadeScene } from "./ArcadeScene";
+import { CasinoScene } from "./CasinoScene";
 import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
 import { GameSession, SESSION_KEY } from "./session";
 import { DEFAULT_BINDINGS, makeAudioSettings } from "shared";
@@ -23,7 +25,7 @@ export function createGame(
         debug: false,
       },
     },
-    scene: [MainScene, RestaurantScene, LumberYardScene],
+    scene: [MainScene, RestaurantScene, LumberYardScene, ArcadeScene, CasinoScene],
   });
   game.registry.set(GAME_BRIDGE_KEY, session.bridge);
   game.registry.set(SESSION_KEY, session);

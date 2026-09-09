@@ -6,7 +6,10 @@ export type AreaKind =
   | "lumberYard"
   | "restaurant"
   | "phoneStore"
-  | "town";
+  | "town"
+  | "foodStreet"
+  | "arcade"
+  | "casino";
 
 export interface Area {
   id: string;
@@ -40,6 +43,24 @@ export const AREAS: Area[] = [
     kind: "town",
     label: "小镇",
     bounds: { x: 980, y: -1270, width: 420, height: 260 },
+  },
+  {
+    id: "food-street",
+    kind: "foodStreet",
+    label: "小吃街",
+    bounds: { x: 120, y: 120, width: 280, height: 150 },
+  },
+  {
+    id: "arcade",
+    kind: "arcade",
+    label: "电玩店",
+    bounds: { x: -1120, y: -560, width: 240, height: 180 },
+  },
+  {
+    id: "casino",
+    kind: "casino",
+    label: "赌场",
+    bounds: { x: -1080, y: 320, width: 260, height: 190 },
   },
   {
     id: "lumber-yard",

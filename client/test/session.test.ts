@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GameBridge } from "../src/game/bridge";
 import { GameSession, CHOP_RANGE } from "../src/game/session";
-import { getDish, PHONE_PRICE } from "shared";
+import { getDish, getSnack, MAX_LOGS, PHONE_PRICE } from "shared";
 
 function makeSession(): GameSession {
   const bridge = new GameBridge({
@@ -115,5 +115,62 @@ describe("GameSession", () => {
     expect(s.bridge.getSnapshot().selectedSlot).toBe(0);
     s.bridge.send({ type: "select-slot", index: 99 });
     expect(s.bridge.getSnapshot().selectedSlot).toBe(9);
+  });
+
+  it("stops chopping when the wood slots are full", () => {
+    const s = makeSession();
+    s.inventory.logs = MAX_LOGS;
+    const tree = s.forest.trees[0];
+    expect(s.chopAt({ x: tree.position.x, y: tree.position.y }, 1)).toBeNull();
+    expect(tree.state).toBe("standing");
+  });
+
+  it("sells street snacks instantly into the collection", () => {
+    const s = makeSession();
+    s.inventory.money = 100;
+    s.orderSnack("skewer");
+    expect(s.inventory.money).toBe(100 - getSnack("skewer")!.price);
+    expect(s.collection.entries["skewer"].timesEaten).toBe(1);
+  });
+
+  it("rejects snacks without enough money", () => {
+    const s = makeSession();
+    s.orderSnack("boba");
+    expect(s.collection.entries["boba"]).toBeUndefined();
+  });
+
+  it("pays arcade rewards per hit after charging the entry fee", () => {
+    const s = makeSession();
+    s.inventory.money = 100;
+    expect(s.arcadeStart()).toBe(true);
+    expect(s.inventory.money).toBe(100 - 20);
+    s.arcadeFinish(15);
+    expect(s.inventory.money).toBe(80 + 15 * 2);
+  });
+
+  it("refuses arcade entry without enough money", () => {
+    const s = makeSession();
+    expect(s.arcadeStart()).toBe(false);
+  });
+
+  it("spins the slot machine deterministically with an injected rng", () => {
+    const s = makeSession();
+    s.inventory.money = 500;
+    // Always cherry triple (multiplier 6): bet 50 -> payout 300.
+    s.casinoSpin(50, () => 0);
+    expect(s.inventory.money).toBe(500 - 50 + 300);
+    expect(s.bridge.getSnapshot().casinoResult?.reels).toEqual([
+      "🍒",
+      "🍒",
+      "🍒",
+    ]);
+  });
+
+  it("keeps the bet when the player cannot afford it", () => {
+    const s = makeSession();
+    s.inventory.money = 10;
+    s.casinoSpin(50, () => 0);
+    expect(s.inventory.money).toBe(10);
+    expect(s.bridge.getSnapshot().casinoResult).toBeNull();
   });
 });

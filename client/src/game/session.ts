@@ -2,22 +2,28 @@ import {
   AREAS,
   type ForestState,
   type Order,
+  ARCADE_ENTRY_FEE,
+  ARCADE_REWARD_PER_HIT,
   addLogs,
   buyPhone,
   chopTree,
   generateForestTrees,
   getDish,
+  getSnack,
   makeFoodCollection,
   makeInventory,
   makeTree,
+  MAX_LOGS,
   placeOrder,
   recordEat,
   rebind,
   scheduleRegrow,
   sellLogs,
   serveOrder,
+  spinSlots,
   tickForest,
   tickOrders,
+  CASINO_BET_OPTIONS,
   type Dish,
 } from "shared";
 import {
@@ -25,6 +31,7 @@ import {
   type BridgeCommand,
   type OrderView,
 } from "./bridge";
+import { spendMoney, addMoney } from "shared";
 
 export const SESSION_KEY = "game-session";
 
@@ -71,6 +78,7 @@ export class GameSession {
   seatedTable: number | null = null;
 
   private orderSeq = 0;
+  private lastFullToastAt = -999;
 
   constructor(bridge: GameBridge, forest?: ForestState) {
     this.bridge = bridge;
@@ -89,6 +97,13 @@ export class GameSession {
     playerPos: { x: number; y: number },
     dtSeconds: number,
   ): ChopOutcome | null {
+    if (this.inventory.logs >= MAX_LOGS) {
+      if (this.gameClock - this.lastFullToastAt > 3) {
+        this.lastFullToastAt = this.gameClock;
+        this.bridge.showToast("背包满了，先去木材店卖掉木材吧", "🎒");
+      }
+      return null;
+    }
     let nearest: (typeof this.forest.trees)[number] | null = null;
     let nearestDist = CHOP_RANGE;
     for (const tree of this.forest.trees) {
@@ -221,6 +236,60 @@ export class GameSession {
     return getDish(order.dishId)!;
   }
 
+  /** Street snack: pay & eat instantly, counts into the collection. */
+  orderSnack(snackId: string): void {
+    const snack = getSnack(snackId);
+    if (!snack) return;
+    if (!spendMoney(this.inventory, snack.price)) {
+      this.bridge.showToast("钱不够哦", "😢");
+      return;
+    }
+    recordEat({
+      collection: this.collection,
+      dishId: snack.id,
+      nowSeconds: this.gameClock,
+    });
+    this.publishSnapshot();
+    this.bridge.showToast(`吃掉 ${snack.name} ${snack.emoji}，真香！`, snack.emoji);
+  }
+
+  /** Pay the entry fee for whack-a-mole; the overlay runs the game. */
+  arcadeStart(): boolean {
+    if (!spendMoney(this.inventory, ARCADE_ENTRY_FEE)) {
+      this.bridge.showToast(`入场费要 ${ARCADE_ENTRY_FEE} 元哦`, "🕹️");
+      return false;
+    }
+    this.publishSnapshot();
+    return true;
+  }
+
+  /** Reward the player for their whack-a-mole score. */
+  arcadeFinish(score: number): void {
+    const payout = Math.max(0, Math.floor(score)) * ARCADE_REWARD_PER_HIT;
+    addMoney(this.inventory, payout);
+    this.publishSnapshot();
+    this.bridge.showToast(
+      `打地鼠命中 ${score} 只，赢得 ${payout} 元 🕹️`,
+      "🎉",
+    );
+  }
+
+  /** Spin the slot machine; result is stored for the overlay to reveal. */
+  casinoSpin(bet: number, rng: () => number = Math.random): void {
+    if (!CASINO_BET_OPTIONS.includes(bet)) return;
+    if (!spendMoney(this.inventory, bet)) {
+      this.bridge.showToast("赌本不够哦，量力而行", "🎰");
+      return;
+    }
+    const { reels, multiplier } = spinSlots(rng);
+    const payout = Math.floor(bet * multiplier);
+    if (payout > 0) addMoney(this.inventory, payout);
+    this.publishSnapshot();
+    this.bridge.patch({
+      casinoResult: { reels: [...reels], bet, payout },
+    });
+  }
+
   private registerCommands(): void {
     const handler = (c: BridgeCommand) => this.handleCommand(c);
     for (const type of [
@@ -243,6 +312,16 @@ export class GameSession {
       "set-audio",
       "rebind",
       "select-slot",
+      "open-snacks",
+      "close-snacks",
+      "order-snack",
+      "open-arcade",
+      "close-arcade",
+      "arcade-start",
+      "arcade-finish",
+      "open-casino",
+      "close-casino",
+      "casino-spin",
     ] as const) {
       this.bridge.on(type, handler);
     }
@@ -320,6 +399,36 @@ export class GameSession {
         this.bridge.patch({ selectedSlot: index });
         break;
       }
+      case "open-snacks":
+        this.bridge.patch({ snackStreetOpen: true });
+        break;
+      case "close-snacks":
+        this.bridge.patch({ snackStreetOpen: false });
+        break;
+      case "order-snack":
+        this.orderSnack(c.snackId);
+        break;
+      case "open-arcade":
+        this.bridge.patch({ arcadeOpen: true });
+        break;
+      case "close-arcade":
+        this.bridge.patch({ arcadeOpen: false });
+        break;
+      case "arcade-start":
+        this.arcadeStart();
+        break;
+      case "arcade-finish":
+        this.arcadeFinish(c.score);
+        break;
+      case "open-casino":
+        this.bridge.patch({ casinoOpen: true });
+        break;
+      case "close-casino":
+        this.bridge.patch({ casinoOpen: false });
+        break;
+      case "casino-spin":
+        this.casinoSpin(c.bet);
+        break;
     }
   }
 }

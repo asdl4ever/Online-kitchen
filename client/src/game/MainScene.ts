@@ -12,6 +12,8 @@ import {
 import {
   RESTAURANT_SCENE_KEY,
   LUMBER_YARD_SCENE_KEY,
+  ARCADE_SCENE_KEY,
+  CASINO_SCENE_KEY,
   ENTRY_RETURN_KEY,
 } from "./RoomScene";
 import type { TreeSprite } from "./types";
@@ -23,6 +25,9 @@ const AREA_COLORS: Record<Area["kind"], number> = {
   restaurant: 0xe0574f,
   phoneStore: 0x5b7bd5,
   town: 0xd9a066,
+  foodStreet: 0xe8b04a,
+  arcade: 0x8a6ac9,
+  casino: 0xb3395e,
 };
 
 const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
@@ -32,6 +37,9 @@ const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
   restaurant: "🍽️",
   phoneStore: "📱",
   town: "🏡",
+  foodStreet: "🍢",
+  arcade: "🕹️",
+  casino: "🎰",
 };
 
 /** Areas whose name already shows on a building sign (no area plaque). */
@@ -48,11 +56,19 @@ const LUMBER_DOOR = { x: -730, y: -110 };
 const RESTAURANT_BUILDING = { x: 0, y: 505 };
 const RESTAURANT_DOOR = { x: 0, y: 585 };
 const PHONE_STORE_POS = { x: 470, y: 500 };
+const ARCADE_BUILDING = { x: -1010, y: -480 };
+const ARCADE_DOOR = { x: -1010, y: -400 };
+const CASINO_BUILDING = { x: -950, y: 400 };
+const CASINO_DOOR = { x: -950, y: 480 };
+const FOOD_STREET_POS = { x: 260, y: 200 };
 
 type PendingInteract =
   | { kind: "enter-restaurant" }
   | { kind: "enter-lumber" }
+  | { kind: "enter-arcade" }
+  | { kind: "enter-casino" }
   | { kind: "phone-shop" }
+  | { kind: "food-street" }
   | null;
 
 export class MainScene extends Phaser.Scene {
@@ -153,7 +169,10 @@ export class MainScene extends Phaser.Scene {
     this.drawWorldFence();
   }
 
-  /** Road layout: capsule segments + junction circles for smooth corners. */
+  /** Road layout: capsule segments + junction circles for smooth corners.
+   *  The network links every venue: west arm (lumber/arcade/casino),
+   *  south arm (restaurant), east arm (phone store/food street),
+   *  and a north-east trunk past the forest to the town. */
   private roadSegments(): {
     h: Array<{ y: number; x1: number; x2: number }>;
     v: Array<{ x: number; y1: number; y2: number }>;
@@ -161,19 +180,29 @@ export class MainScene extends Phaser.Scene {
   } {
     return {
       h: [
-        { y: -16, x1: 0, x2: LUMBER_DOOR.x },
-        { y: 16, x1: 0, x2: PHONE_STORE_POS.x },
+        { y: -16, x1: 0, x2: ARCADE_DOOR.x },
+        { y: 16, x1: 0, x2: 1240 },
+        { y: -1140, x1: 1000, x2: 1240 },
       ],
       v: [
         { x: 0, y1: 50, y2: RESTAURANT_DOOR.y },
         { x: LUMBER_DOOR.x, y1: -16, y2: LUMBER_DOOR.y },
         { x: PHONE_STORE_POS.x, y1: 16, y2: PHONE_STORE_POS.y - 24 },
+        { x: ARCADE_DOOR.x, y1: -16, y2: ARCADE_DOOR.y },
+        { x: CASINO_DOOR.x, y1: -16, y2: CASINO_DOOR.y },
+        { x: 900, y1: 16, y2: -500 },
+        { x: 1240, y1: 16, y2: -1140 },
       ],
       j: [
         { x: 0, y: -16 },
         { x: 0, y: 16 },
         { x: LUMBER_DOOR.x, y: -16 },
         { x: PHONE_STORE_POS.x, y: 16 },
+        { x: ARCADE_DOOR.x, y: -16 },
+        { x: CASINO_DOOR.x, y: -16 },
+        { x: 900, y: 16 },
+        { x: 1240, y: 16 },
+        { x: 1240, y: -1140 },
       ],
     };
   }
@@ -370,6 +399,43 @@ export class MainScene extends Phaser.Scene {
     this.drawBuilding(RESTAURANT_BUILDING, "🍽️", "餐厅", "🧑‍🍳");
     this.drawDoorMarker(RESTAURANT_DOOR);
     this.drawShopMarker(PHONE_STORE_POS, "📱", "手机店", "📲 买手机");
+    this.drawBuilding(ARCADE_BUILDING, "🕹️", "电玩店", "🎮");
+    this.drawDoorMarker(ARCADE_DOOR);
+    this.drawBuilding(CASINO_BUILDING, "🎰", "赌场", "🎲");
+    this.drawDoorMarker(CASINO_DOOR);
+    this.drawFoodStreet();
+  }
+
+  private drawFoodStreet(): void {
+    const stalls = [
+      { x: FOOD_STREET_POS.x - 90, emoji: "🍢" },
+      { x: FOOD_STREET_POS.x, emoji: "🍡" },
+      { x: FOOD_STREET_POS.x + 90, emoji: "🧋" },
+    ];
+    for (const stall of stalls) {
+      this.drawShopMarker({ x: stall.x, y: FOOD_STREET_POS.y }, stall.emoji, "");
+    }
+    // Street sign + string lights
+    const sign = this.add
+      .text(FOOD_STREET_POS.x, FOOD_STREET_POS.y - 78, "🍢 小吃街", {
+        fontSize: "15px",
+        color: "#fff8ec",
+        fontStyle: "bold",
+        padding: { x: 10, y: 4 },
+      })
+      .setOrigin(0.5);
+    const sw = sign.width + 14;
+    const signBg = this.add.graphics();
+    signBg.fillStyle(0x3d2b1f, 0.82);
+    signBg.fillRoundedRect(FOOD_STREET_POS.x - sw / 2, FOOD_STREET_POS.y - 96, sw, 28, 10);
+    sign.setDepth(signBg.depth + 1);
+    for (let i = 0; i < 7; i++) {
+      this.add
+        .text(FOOD_STREET_POS.x - 120 + i * 40, FOOD_STREET_POS.y - 56, "🏮", {
+          fontSize: "14px",
+        })
+        .setOrigin(0.5);
+    }
   }
 
   private drawBuilding(
@@ -428,19 +494,21 @@ export class MainScene extends Phaser.Scene {
     this.add.rectangle(pos.x, pos.y, 52, 42, 0x3b3b3b, 0.92);
     this.add.rectangle(pos.x, pos.y - 4, 44, 30, 0x574434, 0.95);
     this.add.text(pos.x + 2, pos.y - 4, emoji, { fontSize: "26px" }).setOrigin(0.5);
-    const sign = this.add
-      .text(pos.x, pos.y - 34, `${emoji} ${label}`, {
-        fontSize: "13px",
-        color: "#fff8ec",
-        fontStyle: "bold",
-        padding: { x: 8, y: 3 },
-      })
-      .setOrigin(0.5);
-    const sw = sign.width + 12;
-    const signBg = this.add.graphics();
-    signBg.fillStyle(0x3d2b1f, 0.78);
-    signBg.fillRoundedRect(pos.x - sw / 2, pos.y - 46, sw, 24, 8);
-    sign.setDepth(signBg.depth + 1);
+    if (label) {
+      const sign = this.add
+        .text(pos.x, pos.y - 34, `${emoji} ${label}`, {
+          fontSize: "13px",
+          color: "#fff8ec",
+          fontStyle: "bold",
+          padding: { x: 8, y: 3 },
+        })
+        .setOrigin(0.5);
+      const sw = sign.width + 12;
+      const signBg = this.add.graphics();
+      signBg.fillStyle(0x3d2b1f, 0.78);
+      signBg.fillRoundedRect(pos.x - sw / 2, pos.y - 46, sw, 24, 8);
+      sign.setDepth(signBg.depth + 1);
+    }
     if (hint) {
       this.add
         .text(pos.x, pos.y + 32, hint, {
@@ -461,8 +529,17 @@ export class MainScene extends Phaser.Scene {
       case "enter-lumber":
         this.enterRoom(LUMBER_YARD_SCENE_KEY, LUMBER_DOOR);
         break;
+      case "enter-arcade":
+        this.enterRoom(ARCADE_SCENE_KEY, ARCADE_DOOR);
+        break;
+      case "enter-casino":
+        this.enterRoom(CASINO_SCENE_KEY, CASINO_DOOR);
+        break;
       case "phone-shop":
         this.bridge.patch({ phoneShopOpen: true });
+        break;
+      case "food-street":
+        this.bridge.patch({ snackStreetOpen: true });
         break;
     }
   }
@@ -498,6 +575,15 @@ export class MainScene extends Phaser.Scene {
     } else if (dist(pos, LUMBER_DOOR) <= range) {
       next = { kind: "enter-lumber" };
       prompt = "按 F 进入木材店";
+    } else if (dist(pos, ARCADE_DOOR) <= range) {
+      next = { kind: "enter-arcade" };
+      prompt = "按 F 进入电玩店";
+    } else if (dist(pos, CASINO_DOOR) <= range) {
+      next = { kind: "enter-casino" };
+      prompt = "按 F 进入赌场";
+    } else if (dist(pos, FOOD_STREET_POS) <= range) {
+      next = { kind: "food-street" };
+      prompt = "按 F 逛小吃街 🍢";
     } else if (dist(pos, PHONE_STORE_POS) <= range) {
       next = { kind: "phone-shop" };
       prompt = this.session.inventory.hasPhone ? "按 F 进入手机店" : "按 F 买手机";
@@ -522,7 +608,7 @@ export class MainScene extends Phaser.Scene {
     this.updateChopVisuals(chopping, outcome, this.time.now);
 
     movePlayerRig(this.rig);
-    syncPlayerVisuals(this.rig);
+    syncPlayerVisuals(this.rig, this.input.activePointer);
 
     if (Phaser.Input.Keyboard.JustDown(this.rig.keys.interact)) {
       this.pressInteract();

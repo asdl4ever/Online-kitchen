@@ -93,18 +93,23 @@ export function movePlayerRig(rig: PlayerRig, speed = PLAYER_SPEED): void {
   rig.body.setVelocity(vx, vy);
 }
 
-export function syncPlayerVisuals(rig: PlayerRig): void {
+export function syncPlayerVisuals(
+  rig: PlayerRig,
+  pointer?: Phaser.Input.Pointer,
+): void {
   rig.shadow.setPosition(rig.circle.x + 2, rig.circle.y + 12);
   rig.eyes.setPosition(rig.circle.x, rig.circle.y);
 
-  // Pupils look toward the walking direction.
-  const v = rig.body.velocity;
-  const speed = Math.hypot(v.x, v.y);
+  // Pupils follow the mouse cursor (fall back to center).
+  if (!pointer) return;
+  const dx = pointer.worldX - rig.circle.x;
+  const dy = pointer.worldY - rig.circle.y;
+  const dist = Math.hypot(dx, dy);
   let ox = 0;
   let oy = 0;
-  if (speed > 4) {
-    ox = (v.x / speed) * PUPIL_OFFSET;
-    oy = (v.y / speed) * PUPIL_OFFSET;
+  if (dist > 10) {
+    ox = (dx / dist) * PUPIL_OFFSET;
+    oy = (dy / dist) * PUPIL_OFFSET;
   }
   const [leftPupil, rightPupil] = rig.eyes.list.slice(2, 4) as Phaser.GameObjects.Arc[];
   leftPupil.x = -5.5 + ox;

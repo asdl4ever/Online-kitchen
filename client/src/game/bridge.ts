@@ -37,6 +37,10 @@ export interface GameUiState {
   audio: AudioSettings;
   hotbar: HotbarItem[];
   selectedSlot: number;
+  snackStreetOpen: boolean;
+  arcadeOpen: boolean;
+  casinoOpen: boolean;
+  casinoResult: { reels: string[]; bet: number; payout: number } | null;
 }
 
 export type BridgeCommand =
@@ -59,6 +63,16 @@ export type BridgeCommand =
   | { type: "set-audio"; audio: AudioSettings }
   | { type: "rebind"; action: string; key: string }
   | { type: "select-slot"; index: number }
+  | { type: "open-snacks" }
+  | { type: "close-snacks" }
+  | { type: "order-snack"; snackId: string }
+  | { type: "open-arcade" }
+  | { type: "close-arcade" }
+  | { type: "arcade-start" }
+  | { type: "arcade-finish"; score: number }
+  | { type: "open-casino" }
+  | { type: "close-casino" }
+  | { type: "casino-spin"; bet: number }
   | { type: "click-position"; x: number; y: number };
 
 export interface CommandResult {
@@ -108,6 +122,10 @@ export class GameBridge {
         return slots;
       })(),
       selectedSlot: 0,
+      snackStreetOpen: false,
+      arcadeOpen: false,
+      casinoOpen: false,
+      casinoResult: null,
     };
   }
 

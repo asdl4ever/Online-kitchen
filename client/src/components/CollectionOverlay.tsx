@@ -1,4 +1,4 @@
-import { DISHES, getDish } from "shared";
+import { DISHES, SNACKS, getEdible } from "shared";
 import { useGameState } from "../hooks/useGameState";
 import type { GameBridge } from "../game/bridge";
 
@@ -7,13 +7,14 @@ export function CollectionOverlay({ bridge }: { bridge: GameBridge }) {
   if (!state.collectionOpen) return null;
 
   const byDish = new Map(state.collection.map((e) => [e.dishId, e]));
+  const all = [...DISHES, ...SNACKS];
 
   return (
     <div className="overlay-backdrop" onClick={() => bridge.send({ type: "toggle-collection" })}>
       <div className="panel panel-lg" onClick={(e) => e.stopPropagation()}>
         <h2>🍴 美食收藏图鉴</h2>
         <ul className="collection-grid">
-          {DISHES.map((dish) => {
+          {all.map((dish) => {
             const entry = byDish.get(dish.id);
             const eaten = entry?.timesEaten ?? 0;
             return (
@@ -28,7 +29,7 @@ export function CollectionOverlay({ bridge }: { bridge: GameBridge }) {
                 {eaten > 0 ? (
                   <span className="collection-count">😋 已吃 {eaten} 次</span>
                 ) : (
-                  <span className="collection-hint">🔒 {getDish(dish.id)?.price} 元解锁</span>
+                  <span className="collection-hint">🔒 {getEdible(dish.id)?.price} 元解锁</span>
                 )}
               </li>
             );

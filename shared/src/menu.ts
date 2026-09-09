@@ -32,6 +32,24 @@ export function getDish(dishId: string): Dish | undefined {
   return DISHES.find((d) => d.id === dishId);
 }
 
+/** Cheap instant street food: buy & eat on the spot. */
+export const SNACKS: Dish[] = [
+  { id: "skewer", name: "烤串", price: 10, emoji: "🍢", cookSeconds: 0 },
+  { id: "candied", name: "糖葫芦", price: 8, emoji: "🍡", cookSeconds: 0 },
+  { id: "pancake", name: "煎饼果子", price: 12, emoji: "🥞", cookSeconds: 0 },
+  { id: "boba", name: "珍珠奶茶", price: 15, emoji: "🧋", cookSeconds: 0 },
+  { id: "cookie", name: "曲奇饼", price: 6, emoji: "🍪", cookSeconds: 0 },
+];
+
+export function getSnack(snackId: string): Dish | undefined {
+  return SNACKS.find((d) => d.id === snackId);
+}
+
+/** Any edible item (restaurant dish or street snack) by id. */
+export function getEdible(id: string): Dish | undefined {
+  return getDish(id) ?? getSnack(id);
+}
+
 export interface PlaceOrderInput {
   inventory: Inventory;
   dishId: string;
