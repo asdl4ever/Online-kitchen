@@ -4,6 +4,10 @@ import { RestaurantScene } from "./RestaurantScene";
 import { LumberYardScene } from "./LumberYardScene";
 import { ArcadeScene } from "./ArcadeScene";
 import { CasinoScene } from "./CasinoScene";
+import { PetShopScene } from "./PetShopScene";
+import { HouseScene } from "./HouseScene";
+import { FurnitureScene } from "./FurnitureScene";
+import { CarShopScene, DealershipScene } from "./VehicleShopScene";
 import { GameBridge, GAME_BRIDGE_KEY } from "./bridge";
 import { GameSession, SESSION_KEY } from "./session";
 import { DEFAULT_BINDINGS, makeAudioSettings } from "shared";
@@ -25,7 +29,18 @@ export function createGame(
         debug: false,
       },
     },
-    scene: [MainScene, RestaurantScene, LumberYardScene, ArcadeScene, CasinoScene],
+    scene: [
+      MainScene,
+      RestaurantScene,
+      LumberYardScene,
+      ArcadeScene,
+      CasinoScene,
+      PetShopScene,
+      HouseScene,
+      FurnitureScene,
+      CarShopScene,
+      DealershipScene,
+    ],
   });
   game.registry.set(GAME_BRIDGE_KEY, session.bridge);
   game.registry.set(SESSION_KEY, session);

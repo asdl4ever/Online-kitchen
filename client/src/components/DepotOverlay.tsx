@@ -5,7 +5,7 @@ import type { GameBridge } from "../game/bridge";
 export function DepotOverlay({ bridge }: { bridge: GameBridge }) {
   const state = useGameState(bridge);
   if (!state.depotOpen) return null;
-  const value = state.logs * WOOD_PRICE_PER_LOG;
+  const value = Math.floor(state.logs * WOOD_PRICE_PER_LOG * (1 + state.petBonusPct / 100));
 
   return (
     <div className="overlay-backdrop" onClick={() => bridge.send({ type: "close-depot" })}>
@@ -14,6 +14,9 @@ export function DepotOverlay({ bridge }: { bridge: GameBridge }) {
         <p>
           收购价：💰 <b>{WOOD_PRICE_PER_LOG}</b> 元 / 根 🪵
         </p>
+        {state.petBonusPct > 0 && (
+          <p className="panel-hint">🐾 宠物加成 +{state.petBonusPct}%</p>
+        )}
         <p>
           你持有 🪵 <b>{state.logs}</b> 根，可卖 <b>{value}</b> 元
         </p>

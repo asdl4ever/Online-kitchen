@@ -14,3 +14,8 @@ export * from "./menu";
 export * from "./collection";
 export * from "./settings";
 export * from "./casino";
+export * from "./pets";
+export * from "./fishing";
+export * from "./property";
+export * from "./vehicles";
+export * from "./arcade";

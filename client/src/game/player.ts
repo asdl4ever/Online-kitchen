@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { getQuality, getSpecies, type Pet } from "shared";
 
 export interface PlayerRig {
   circle: Phaser.GameObjects.Arc;
@@ -122,4 +123,62 @@ export function teleportPlayer(rig: PlayerRig, x: number, y: number): void {
   rig.body.reset(x, y);
   rig.circle.setPosition(x, y);
   rig.eyes.setPosition(x, y);
+}
+
+/** Visual pet that trails the player with a quality-colored aura. */
+export interface PetVisual {
+  id: string;
+  emoji: string;
+  color: number;
+}
+
+export function petVisualOf(pet: Pet): PetVisual {
+  return {
+    id: pet.id,
+    emoji: getSpecies(pet.species).emoji,
+    color: getQuality(pet.quality).color,
+  };
+}
+
+export class PetTrail {
+  private container: Phaser.GameObjects.Container | null = null;
+  private petId: string | null = null;
+  private x = 0;
+  private y = 0;
+
+  constructor(private scene: Phaser.Scene) {}
+
+  /** Call every frame; creates/destroys the follower as the pet changes. */
+  update(targetX: number, targetY: number, pet: PetVisual | null, dt: number): void {
+    if (!pet) {
+      this.container?.destroy();
+      this.container = null;
+      this.petId = null;
+      return;
+    }
+    if (!this.container || this.petId !== pet.id) {
+      this.container?.destroy();
+      const container = this.scene.add.container(targetX - 22, targetY + 8);
+      const aura = this.scene.add.circle(0, 4, 12, pet.color, 0.45);
+      const body = this.scene.add.text(0, 0, pet.emoji, { fontSize: "22px" }).setOrigin(0.5);
+      container.add([aura, body]);
+      container.setDepth(4);
+      this.container = container;
+      this.petId = pet.id;
+      this.x = targetX - 22;
+      this.y = targetY + 8;
+    }
+    const lerp = Math.min(1, dt * 5);
+    this.x += (targetX - 22 - this.x) * lerp;
+    this.y += (targetY + 8 - this.y) * lerp;
+    this.container.setPosition(this.x, this.y);
+    // Hop while moving
+    this.container.y += Math.sin(this.scene.time.now * 0.012) * 2;
+  }
+
+  destroy(): void {
+    this.container?.destroy();
+    this.container = null;
+    this.petId = null;
+  }
 }

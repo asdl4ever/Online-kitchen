@@ -19,6 +19,14 @@ import { Hotbar } from "./Hotbar";
 import { SnackStreetOverlay } from "./SnackStreetOverlay";
 import { ArcadeOverlay } from "./ArcadeOverlay";
 import { CasinoOverlay } from "./CasinoOverlay";
+import { PetsOverlay } from "./PetsOverlay";
+import { PetShopOverlay } from "./PetShopOverlay";
+import { Minimap, MapOverlay } from "./WorldMap";
+import { FishMarketOverlay } from "./FishMarketOverlay";
+import { FurnitureOverlay } from "./FurnitureOverlay";
+import { CarShopOverlay, DealershipOverlay } from "./VehicleShopOverlay";
+import { HousePanelOverlay } from "./HousePanelOverlay";
+import { ReactionOverlay } from "./ReactionOverlay";
 
 export function GameView() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -45,6 +53,10 @@ export function GameView() {
         <>
           <Hud bridge={bridge} areaLabel={areaLabel} />
           <Hotbar bridge={bridge} />
+          <div className="minimap-corner">
+            <Minimap bridge={bridge} />
+            <p className="minimap-hint">按 M 看大地图</p>
+          </div>
           <BackpackOverlay bridge={bridge} />
           <MenuOverlay bridge={bridge} />
           <DepotOverlay bridge={bridge} />
@@ -53,8 +65,17 @@ export function GameView() {
           <SnackStreetOverlay bridge={bridge} />
           <ArcadeOverlay bridge={bridge} />
           <CasinoOverlay bridge={bridge} />
+          <PetsOverlay bridge={bridge} />
+          <PetShopOverlay bridge={bridge} />
           <CollectionOverlay bridge={bridge} />
           <SettingsOverlay bridge={bridge} />
+          <FishMarketOverlay bridge={bridge} />
+          <FurnitureOverlay bridge={bridge} />
+          <CarShopOverlay bridge={bridge} />
+          <DealershipOverlay bridge={bridge} />
+          <HousePanelOverlay bridge={bridge} />
+          <ReactionOverlay bridge={bridge} />
+          <MapOverlay bridge={bridge} />
           <Toast bridge={bridge} />
         </>
       )}

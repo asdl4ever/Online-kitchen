@@ -48,6 +48,16 @@ export function Hud({
         >
           🍴 <b>{done}</b>/{DISHES.length}
         </button>
+        <button
+          className="chip chip-btn"
+          onClick={() => bridge.send({ type: "open-pets" })}
+          title="我的宠物"
+        >
+          🐶 {state.pets.length}
+          {state.petBonusPct > 0 && (
+            <span className="chip-sub">+{state.petBonusPct}%</span>
+          )}
+        </button>
         {state.hasPhone && (
           <button
             className="chip chip-btn chip-phone"
@@ -60,7 +70,7 @@ export function Hud({
       </div>
       <div className="hud-help">
         <p>
-          <kbd>{prettyKey(bindKey)}</kbd> 背包 · <kbd>Esc</kbd> 设置
+          <kbd>{prettyKey(bindKey)}</kbd> 背包 · <kbd>Esc</kbd> 设置 · <kbd>M</kbd> 地图
         </p>
         {!state.hasPhone && (
           <p className="hud-tip">💡 去 📱 手机店买手机，可远程点餐</p>

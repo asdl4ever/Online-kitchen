@@ -5,6 +5,8 @@ import {
   createPlayerRig,
   movePlayerRig,
   syncPlayerVisuals,
+  petVisualOf,
+  PetTrail,
   type PlayerRig,
 } from "./player";
 
@@ -13,6 +15,11 @@ export const RESTAURANT_SCENE_KEY = "RestaurantScene";
 export const LUMBER_YARD_SCENE_KEY = "LumberYardScene";
 export const ARCADE_SCENE_KEY = "ArcadeScene";
 export const CASINO_SCENE_KEY = "CasinoScene";
+export const PET_SHOP_SCENE_KEY = "PetShopScene";
+export const HOUSE_SCENE_KEY = "HouseScene";
+export const FURNITURE_SCENE_KEY = "FurnitureScene";
+export const CAR_SHOP_SCENE_KEY = "CarShopScene";
+export const DEALERSHIP_SCENE_KEY = "DealershipScene";
 
 /** Registry key for the map position to drop the player at after exiting. */
 export const ENTRY_RETURN_KEY = "entry-return";
@@ -28,6 +35,7 @@ export interface RoomLayout {
 export type RoomPendingInteract =
   | { kind: "counter" }
   | { kind: "seat"; tableIndex: number }
+  | { kind: "reaction" }
   | { kind: "exit" }
   | null;
 
@@ -43,6 +51,7 @@ export abstract class RoomScene extends Phaser.Scene {
   protected roomLabel = "";
   /** While seated the ball is fixed to the chair; F stands up. */
   protected movementLocked = false;
+  protected petTrail!: PetTrail;
 
   protected abstract getLayout(): RoomLayout;
   protected abstract drawRoom(): void;
@@ -61,14 +70,17 @@ export abstract class RoomScene extends Phaser.Scene {
     this.drawRoom();
 
     this.rig = createPlayerRig(this, this.layout.doorPos.x, this.layout.doorPos.y + 36);
+    this.petTrail = new PetTrail(this);
 
     this.cameras.main.setBounds(0, 0, this.layout.width, this.layout.height);
-    this.cameras.main.startFollow(this.rig.circle, true, 0.1, 0.1);
     if (
       this.layout.width <= this.scale.width &&
       this.layout.height <= this.scale.height
     ) {
+      // Room fits on screen: center it statically for a tidy frame.
       this.cameras.main.centerOn(this.layout.width / 2, this.layout.height / 2);
+    } else {
+      this.cameras.main.startFollow(this.rig.circle, true, 0.1, 0.1);
     }
 
     this.bridgePatchPrompt(null);
@@ -100,6 +112,13 @@ export abstract class RoomScene extends Phaser.Scene {
     }
 
     this.detectInteract();
+    const active = this.session.activePet();
+    this.petTrail.update(
+      this.rig.circle.x,
+      this.rig.circle.y,
+      active ? petVisualOf(active) : null,
+      dt,
+    );
     this.roomUpdate(dt);
   }
 

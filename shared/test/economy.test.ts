@@ -33,6 +33,12 @@ describe("economy", () => {
     expect(inv.money).toBe(3 * WOOD_PRICE_PER_LOG);
   });
 
+  it("applies a pet bonus percent when selling", () => {
+    const inv = makeInventory({ logs: 10 });
+    const result = sellLogs(inv, 10, 20);
+    expect(result.earned).toBe(Math.floor(10 * WOOD_PRICE_PER_LOG * 1.2));
+  });
+
   it("sells only what the player has", () => {
     const inv = makeInventory({ logs: 2 });
     const result = sellLogs(inv, 5);

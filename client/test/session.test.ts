@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { GameBridge } from "../src/game/bridge";
 import { GameSession, CHOP_RANGE } from "../src/game/session";
-import { getDish, getSnack, MAX_LOGS, PHONE_PRICE } from "shared";
+import {
+  getDish,
+  getSnack,
+  MAX_LOGS,
+  PET_EGG_PRICE,
+  petBonusPct,
+  PHONE_PRICE,
+  type Pet,
+} from "shared";
 
 function makeSession(): GameSession {
   const bridge = new GameBridge({
@@ -172,5 +180,130 @@ describe("GameSession", () => {
     s.casinoSpin(50, () => 0);
     expect(s.inventory.money).toBe(10);
     expect(s.bridge.getSnapshot().casinoResult).toBeNull();
+  });
+
+  it("buys an egg into an empty hotbar slot and hatches a pet", () => {
+    const s = makeSession();
+    s.inventory.money = 1000;
+    s.buyEgg();
+    expect(s.inventory.money).toBe(1000 - PET_EGG_PRICE);
+    const ui = s.bridge.getSnapshot();
+    expect(ui.hotbar.filter((i) => i === "egg")).toHaveLength(1);
+
+    // Deterministic hatch: rng 0 -> first species & common quality.
+    s.hatchEgg(() => 0);
+    expect(s.pets).toHaveLength(1);
+    expect(s.activePetId).toBe(s.pets[0].id);
+    expect(s.bridge.getSnapshot().hotbar.filter((i) => i === "egg")).toHaveLength(0);
+    expect(s.bridge.getSnapshot().pets).toHaveLength(1);
+  });
+
+  it("adds a pet selling bonus to wood", () => {
+    const s = makeSession();
+    s.inventory.logs = 10;
+    s.pets.push({ id: "pet-x", species: "dragon", quality: "legendary", stars: 1 });
+    s.activePetId = "pet-x";
+    s.sellAllLogs();
+    // legendary 20% bonus: 10 * 10 * 1.2 = 120
+    expect(s.inventory.money).toBe(120);
+    expect(s.woodBonusPct()).toBe(20);
+  });
+
+  it("upgrades pet stars with money", () => {
+    const s = makeSession();
+    s.inventory.money = 1000;
+    const pet: Pet = { id: "pet-u", species: "cat", quality: "rare", stars: 1 };
+    s.pets.push(pet);
+    s.activePetId = "pet-u";
+    s.upgradePet("pet-u");
+    expect(pet.stars).toBe(2);
+    expect(s.inventory.money).toBe(1000 - 200);
+    expect(s.woodBonusPct()).toBe(petBonusPct(pet));
+  });
+
+  it("switches the active pet", () => {
+    const s = makeSession();
+    s.pets.push(
+      { id: "a", species: "dog", quality: "common", stars: 1 },
+      { id: "b", species: "cat", quality: "epic", stars: 1 },
+    );
+    s.activePetId = "a";
+    s.selectPet("b");
+    expect(s.activePetId).toBe("b");
+    expect(s.woodBonusPct()).toBe(10);
+  });
+
+  it("runs the fishing minigame: start, bite, catch, sell", () => {
+    const s = makeSession();
+    s.startFishing(() => 0); // 2s until bite
+    expect(s.fishing?.phase).toBe("waiting");
+    s.tick(2000); // clock reaches biteAt
+    expect(s.fishing?.phase).toBe("bite");
+    // Catch with rng 0 -> first fish (sardine)
+    s.fishingAction(() => 0);
+    expect(s.fishing).toBeNull();
+    expect(s.fishBag["sardine"]).toBe(1);
+
+    s.sellFish();
+    expect(s.inventory.money).toBe(8);
+  });
+
+  it("escapes the fish if the bite window is missed", () => {
+    const s = makeSession();
+    s.startFishing(() => 0);
+    s.tick(2000); // bite
+    s.tick(2000); // 1.5s window passed
+    expect(s.fishing).toBeNull();
+    expect(Object.keys(s.fishBag)).toHaveLength(0);
+  });
+
+  it("applies furniture comfort as a fish price bonus", () => {
+    const s = makeSession();
+    s.inventory.money = 5000;
+    s.buyHouse("maple");
+    expect(s.ownedHouseIds).toContain("maple");
+    s.buyFurniture("bed"); // comfort 8
+    s.buyFurniture("sofa"); // comfort 5
+    expect(s.comfort()).toBe(13);
+    s.fishBag["sardine"] = 10; // raw 80 -> 80 * 1.13
+    s.sellFish();
+    expect(s.inventory.money).toBe(5000 - 2000 - 500 - 300 + Math.floor(80 * 1.13));
+  });
+
+  it("blocks furniture without a house", () => {
+    const s = makeSession();
+    s.inventory.money = 1000;
+    s.buyFurniture("bed");
+    expect(s.comfort()).toBe(0);
+  });
+
+  it("buys vehicles and applies speed multipliers", () => {
+    const s = makeSession();
+    s.inventory.money = 1000;
+    s.buyVehicle("bike");
+    expect(s.speedMult()).toBeCloseTo(1.3);
+    expect(s.inventory.money).toBe(500);
+    s.selectVehicle("bike"); // toggles off
+    expect(s.speedMult()).toBe(1);
+    s.selectVehicle("bike");
+    expect(s.speedMult()).toBeCloseTo(1.3);
+  });
+
+  it("settles dice bets deterministically with an injected rng", () => {
+    const s = makeSession();
+    s.inventory.money = 1000;
+    // Direct rule check: rng 0 -> 1+1=2 => small wins x2.2
+    s.diceBetWithRng("small", 50, () => 0);
+    expect(s.inventory.money).toBe(1000 - 50 + Math.floor(50 * 2.2));
+    expect(s.bridge.getSnapshot().diceResult?.sum).toBe(2);
+  });
+
+  it("pays reaction rewards by speed", () => {
+    const s = makeSession();
+    s.inventory.money = 100;
+    expect(s.reactionStart()).toBe(true);
+    expect(s.inventory.money).toBe(90);
+    s.reactionFinish(180);
+    expect(s.inventory.money).toBe(90 + 100);
   });
 });

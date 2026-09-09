@@ -4,6 +4,10 @@ import type {
   Dish,
   FoodEntry,
   OrderStatus,
+  Pet,
+  PetQuality,
+  PetSpeciesId,
+  VehicleTier,
 } from "shared";
 
 export interface OrderView {
@@ -14,8 +18,47 @@ export interface OrderView {
   readyAt: number;
 }
 
-export type HotbarItem = "axe" | null;
+export type HotbarItem = "axe" | "egg" | null;
 export const HOTBAR_SIZE = 10;
+
+export interface PetView {
+  id: string;
+  species: PetSpeciesId;
+  speciesName: string;
+  emoji: string;
+  quality: PetQuality;
+  qualityName: string;
+  qualityCss: string;
+  stars: number;
+  bonusPct: number;
+}
+
+export interface FishBagView {
+  id: string;
+  name: string;
+  emoji: string;
+  count: number;
+  price: number;
+}
+
+export interface VehicleView {
+  id: string;
+  name: string;
+  emoji: string;
+  price: number;
+  speedMult: number;
+  tier: VehicleTier;
+  owned: boolean;
+  active: boolean;
+}
+
+export interface HousePanelView {
+  houseId: string;
+  name: string;
+  emoji: string;
+  price: number;
+  owned: boolean;
+}
 
 export interface GameUiState {
   prompt: string | null;
@@ -41,6 +84,27 @@ export interface GameUiState {
   arcadeOpen: boolean;
   casinoOpen: boolean;
   casinoResult: { reels: string[]; bet: number; payout: number } | null;
+  petShopOpen: boolean;
+  petsOpen: boolean;
+  pets: PetView[];
+  activePetId: string | null;
+  petBonusPct: number;
+  playerPos: { x: number; y: number } | null;
+  mapOpen: boolean;
+  fishMarketOpen: boolean;
+  fishBag: FishBagView[];
+  fishTotal: number;
+  furnitureOpen: boolean;
+  carShopOpen: boolean;
+  dealershipOpen: boolean;
+  vehicles: VehicleView[];
+  activeVehicleId: string | null;
+  vehicleMult: number;
+  housePanel: HousePanelView | null;
+  ownedHouses: string[];
+  comfort: number;
+  diceResult: { dice: [number, number]; sum: number; payout: number; bet: number } | null;
+  reactionOpen: boolean;
 }
 
 export type BridgeCommand =
@@ -73,6 +137,34 @@ export type BridgeCommand =
   | { type: "open-casino" }
   | { type: "close-casino" }
   | { type: "casino-spin"; bet: number }
+  | { type: "open-pet-shop" }
+  | { type: "close-pet-shop" }
+  | { type: "buy-egg" }
+  | { type: "open-pets" }
+  | { type: "close-pets" }
+  | { type: "select-pet"; petId: string }
+  | { type: "upgrade-pet"; petId: string }
+  | { type: "toggle-map" }
+  | { type: "close-map" }
+  | { type: "open-fish-market" }
+  | { type: "close-fish-market" }
+  | { type: "sell-fish" }
+  | { type: "open-furniture" }
+  | { type: "close-furniture" }
+  | { type: "buy-furniture"; furnitureId: string }
+  | { type: "open-car-shop" }
+  | { type: "close-car-shop" }
+  | { type: "open-dealership" }
+  | { type: "close-dealership" }
+  | { type: "buy-vehicle"; vehicleId: string }
+  | { type: "select-vehicle"; vehicleId: string }
+  | { type: "buy-house"; houseId: string }
+  | { type: "close-house-panel" }
+  | { type: "reaction-start" }
+  | { type: "reaction-finish"; ms: number }
+  | { type: "open-reaction" }
+  | { type: "close-reaction" }
+  | { type: "dice-bet"; choice: "big" | "small"; bet: number }
   | { type: "click-position"; x: number; y: number };
 
 export interface CommandResult {
@@ -126,6 +218,27 @@ export class GameBridge {
       arcadeOpen: false,
       casinoOpen: false,
       casinoResult: null,
+      petShopOpen: false,
+      petsOpen: false,
+      pets: [],
+      activePetId: null,
+      petBonusPct: 0,
+      playerPos: null,
+      mapOpen: false,
+      fishMarketOpen: false,
+      fishBag: [],
+      fishTotal: 0,
+      furnitureOpen: false,
+      carShopOpen: false,
+      dealershipOpen: false,
+      vehicles: [],
+      activeVehicleId: null,
+      vehicleMult: 1,
+      housePanel: null,
+      ownedHouses: [],
+      comfort: 0,
+      diceResult: null,
+      reactionOpen: false,
     };
   }
 

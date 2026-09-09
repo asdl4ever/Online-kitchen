@@ -38,11 +38,11 @@ export interface SellResult {
   rejected: number;
 }
 
-/** Sell up to `maxSell` logs at the wood price. Returns what happened. */
-export function sellLogs(inv: Inventory, maxSell: number): SellResult {
+/** Sell up to `maxSell` logs at the wood price, with an optional pet bonus. */
+export function sellLogs(inv: Inventory, maxSell: number, bonusPct = 0): SellResult {
   const toSell = Math.min(inv.logs, maxSell);
   if (toSell <= 0) return { sold: 0, earned: 0, rejected: maxSell };
-  const earned = toSell * WOOD_PRICE_PER_LOG;
+  const earned = Math.floor(toSell * WOOD_PRICE_PER_LOG * (1 + bonusPct / 100));
   inv.logs -= toSell;
   inv.money += earned;
   return { sold: toSell, earned, rejected: maxSell - toSell };

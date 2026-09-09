@@ -9,7 +9,14 @@ export type AreaKind =
   | "town"
   | "foodStreet"
   | "arcade"
-  | "casino";
+  | "casino"
+  | "petShop"
+  | "resort"
+  | "lake"
+  | "residential"
+  | "furnitureShop"
+  | "carShop"
+  | "dealership";
 
 export interface Area {
   id: string;
@@ -61,6 +68,48 @@ export const AREAS: Area[] = [
     kind: "casino",
     label: "赌场",
     bounds: { x: -1080, y: 320, width: 260, height: 190 },
+  },
+  {
+    id: "pet-shop",
+    kind: "petShop",
+    label: "宠物店",
+    bounds: { x: -620, y: -620, width: 220, height: 160 },
+  },
+  {
+    id: "resort",
+    kind: "resort",
+    label: "度假庄园",
+    bounds: { x: 560, y: 100, width: 380, height: 300 },
+  },
+  {
+    id: "lake",
+    kind: "lake",
+    label: "湖海",
+    bounds: { x: 620, y: 470, width: 880, height: 620 },
+  },
+  {
+    id: "residential",
+    kind: "residential",
+    label: "居民区",
+    bounds: { x: -520, y: 640, width: 480, height: 220 },
+  },
+  {
+    id: "furniture-shop",
+    kind: "furnitureShop",
+    label: "家具店",
+    bounds: { x: -560, y: 420, width: 200, height: 150 },
+  },
+  {
+    id: "car-shop",
+    kind: "carShop",
+    label: "车行",
+    bounds: { x: -780, y: 520, width: 180, height: 150 },
+  },
+  {
+    id: "dealership",
+    kind: "dealership",
+    label: "4S店",
+    bounds: { x: -300, y: -520, width: 240, height: 170 },
   },
   {
     id: "lumber-yard",

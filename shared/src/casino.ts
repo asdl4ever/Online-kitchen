@@ -51,3 +51,31 @@ export function spinSlots(rng: () => number): SpinResult {
   }
   return { reels, multiplier };
 }
+
+/* ============ 骰子猜大小 ============ */
+
+export type DiceChoice = "big" | "small";
+
+export const DICE_PAYOUT_MULTIPLIER = 2.2;
+
+export interface DiceRoll {
+  dice: [number, number];
+  sum: number;
+  /** "big" (8-12), "small" (2-6), or "seven" (always loses). */
+  side: DiceChoice | "seven";
+}
+
+export function rollDice(rng: () => number): DiceRoll {
+  const d1 = 1 + Math.floor(rng() * 6);
+  const d2 = 1 + Math.floor(rng() * 6);
+  const sum = d1 + d2;
+  const side: DiceRoll["side"] =
+    sum === 7 ? "seven" : sum <= 6 ? "small" : "big";
+  return { dice: [d1, d2], sum, side };
+}
+
+/** Multiplier for a correct guess; wrong guess or a seven pays nothing. */
+export function diceMultiplier(roll: DiceRoll, choice: DiceChoice): number {
+  if (roll.side === "seven" || roll.side !== choice) return 0;
+  return DICE_PAYOUT_MULTIPLIER;
+}
