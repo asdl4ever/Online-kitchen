@@ -22,6 +22,7 @@ const AREA_COLORS: Record<Area["kind"], number> = {
   lumberYard: 0x8a6642,
   restaurant: 0xe0574f,
   phoneStore: 0x5b7bd5,
+  town: 0xd9a066,
 };
 
 const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
@@ -30,6 +31,7 @@ const AREA_PLAQUE_EMOJI: Record<Area["kind"], string> = {
   lumberYard: "🪵",
   restaurant: "🍽️",
   phoneStore: "📱",
+  town: "🏡",
 };
 
 /** Areas whose name already shows on a building sign (no area plaque). */
@@ -41,11 +43,11 @@ const AREAS_WITH_BUILDING_SIGN: Area["kind"][] = [
 
 export const AREA_CHANGE_EVENT = "area-change";
 
-const LUMBER_BUILDING = { x: -400, y: -140 };
-const LUMBER_DOOR = { x: -400, y: -76 };
-const RESTAURANT_BUILDING = { x: 0, y: 330 };
-const RESTAURANT_DOOR = { x: 0, y: 402 };
-const PHONE_STORE_POS = { x: 340, y: 350 };
+const LUMBER_BUILDING = { x: -730, y: -190 };
+const LUMBER_DOOR = { x: -730, y: -110 };
+const RESTAURANT_BUILDING = { x: 0, y: 505 };
+const RESTAURANT_DOOR = { x: 0, y: 585 };
+const PHONE_STORE_POS = { x: 470, y: 500 };
 
 type PendingInteract =
   | { kind: "enter-restaurant" }
@@ -85,6 +87,7 @@ export class MainScene extends Phaser.Scene {
 
     this.drawWorld();
     this.drawBuildings();
+    this.drawTownDecor();
 
     this.rig = createPlayerRig(this, 0, 0);
 
@@ -95,6 +98,7 @@ export class MainScene extends Phaser.Scene {
       WORLD_BOUNDS.width,
       WORLD_BOUNDS.height,
     );
+    this.cameras.main.setZoom(1.4);
 
     this.events.on("wake", () => this.onWake());
     this.session.publishSnapshot();
@@ -149,39 +153,53 @@ export class MainScene extends Phaser.Scene {
     this.drawWorldFence();
   }
 
+  /** Road layout: capsule segments + junction circles for smooth corners. */
+  private roadSegments(): {
+    h: Array<{ y: number; x1: number; x2: number }>;
+    v: Array<{ x: number; y1: number; y2: number }>;
+    j: Array<{ x: number; y: number }>;
+  } {
+    return {
+      h: [
+        { y: -16, x1: 0, x2: LUMBER_DOOR.x },
+        { y: 16, x1: 0, x2: PHONE_STORE_POS.x },
+      ],
+      v: [
+        { x: 0, y1: 50, y2: RESTAURANT_DOOR.y },
+        { x: LUMBER_DOOR.x, y1: -16, y2: LUMBER_DOOR.y },
+        { x: PHONE_STORE_POS.x, y1: 16, y2: PHONE_STORE_POS.y - 24 },
+      ],
+      j: [
+        { x: 0, y: -16 },
+        { x: 0, y: 16 },
+        { x: LUMBER_DOOR.x, y: -16 },
+        { x: PHONE_STORE_POS.x, y: 16 },
+      ],
+    };
+  }
+
   /** Sandy paths linking the residential spots; the wilderness stays wild. */
   private drawRoads(): void {
-    const roadColor = 0xd9c49c;
-    const edgeColor = 0xc4ad82;
-    const width = 40;
-    const hRoad = (
-      x1: number,
-      x2: number,
-      y: number,
-    ) => {
-      const from = Math.min(x1, x2);
-      const to = Math.max(x1, x2);
-      const mid = (from + to) / 2;
-      const len = to - from;
-      this.add.rectangle(mid, y, len, width + 6, edgeColor);
-      this.add.rectangle(mid, y, len, width, roadColor);
+    const segs = this.roadSegments();
+    const draw = (width: number, color: number) => {
+      const g = this.add.graphics();
+      g.fillStyle(color, 1);
+      for (const s of segs.h) {
+        const from = Math.min(s.x1, s.x2);
+        const len = Math.abs(s.x2 - s.x1);
+        g.fillRoundedRect(from - width / 2, s.y - width / 2, len + width, width, width / 2);
+      }
+      for (const s of segs.v) {
+        const from = Math.min(s.y1, s.y2);
+        const len = Math.abs(s.y2 - s.y1);
+        g.fillRoundedRect(s.x - width / 2, from - width / 2, width, len + width, width / 2);
+      }
+      for (const j of segs.j) {
+        g.fillCircle(j.x, j.y, width / 2);
+      }
     };
-    const vRoad = (x: number, y1: number, y2: number) => {
-      const from = Math.min(y1, y2);
-      const to = Math.max(y1, y2);
-      const mid = (from + to) / 2;
-      const len = to - from;
-      this.add.rectangle(x, mid, width + 6, len, edgeColor);
-      this.add.rectangle(x, mid, width, len, roadColor);
-    };
-    // Spawn -> Restaurant (straight south)
-    vRoad(0, 60, RESTAURANT_DOOR.y);
-    // Spawn -> Lumber yard (west then north to the door)
-    hRoad(0, LUMBER_DOOR.x, -16);
-    vRoad(LUMBER_DOOR.x, -16, LUMBER_DOOR.y);
-    // Spawn -> Phone store (east then south)
-    hRoad(0, PHONE_STORE_POS.x, 16);
-    vRoad(PHONE_STORE_POS.x, 16, PHONE_STORE_POS.y - 30);
+    draw(54, 0xc4ad82);
+    draw(44, 0xd9c49c);
   }
 
     /**
@@ -237,6 +255,27 @@ export class MainScene extends Phaser.Scene {
     text.setDepth(bg.depth + 1);
   }
 
+  /** Decorative small town past the forest: houses and a well. */
+  private drawTownDecor(): void {
+    const town = AREAS.find((a) => a.kind === "town")!;
+    const b = town.bounds;
+    this.drawHouse(b.x + 80, b.y + 80, "🏠");
+    this.drawHouse(b.x + 230, b.y + 170, "🏡");
+    this.drawHouse(b.x + 340, b.y + 70, "🏘️");
+    this.add.text(b.x + 150, b.y + 210, "⛲", { fontSize: "28px" }).setOrigin(0.5);
+    this.add.text(b.x + 300, b.y + 200, "🛒", { fontSize: "24px" }).setOrigin(0.5);
+  }
+
+  private drawHouse(x: number, y: number, emoji: string): void {
+    this.add.ellipse(x + 2, y + 26, 100, 16, 0x3d2b1f, 0.18);
+    this.add.rectangle(x, y, 92, 62, 0xf2e3c2, 0.98);
+    this.add.rectangle(x, y - 40, 104, 24, 0xb85c3f, 0.98);
+    this.add.rectangle(x, y - 28, 92, 10, 0xa34e34, 0.98);
+    this.add.rectangle(x - 22, y + 2, 24, 20, 0xbfe3ef, 0.95);
+    this.add.text(x + 26, y + 8, emoji, { fontSize: "20px" }).setOrigin(0.5);
+    this.add.text(x - 26, y + 12, "🚪", { fontSize: "16px" }).setOrigin(0.5);
+  }
+
   private drawGrassDecor(): void {
     const decor = ["🌿", "🌱", "🌼", "🌷", "🍀", "🍄"];
     let seed = 42;
@@ -244,7 +283,7 @@ export class MainScene extends Phaser.Scene {
       seed = (seed * 1103515245 + 12345) % 2147483648;
       return seed / 2147483648;
     };
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 170; i++) {
       const x = WORLD_BOUNDS.x + 30 + rand() * (WORLD_BOUNDS.width - 60);
       const y = WORLD_BOUNDS.y + 30 + rand() * (WORLD_BOUNDS.height - 60);
       if (this.insideAnyArea(x, y)) continue;
@@ -275,7 +314,7 @@ export class MainScene extends Phaser.Scene {
     };
     const placed: { x: number; y: number }[] = [];
     let attempts = 0;
-    while (placed.length < 22 && attempts < 400) {
+    while (placed.length < 32 && attempts < 600) {
       attempts += 1;
       const x = WORLD_BOUNDS.x + 40 + rand() * (WORLD_BOUNDS.width - 80);
       const y = WORLD_BOUNDS.y + 40 + rand() * (WORLD_BOUNDS.height - 80);
@@ -294,16 +333,19 @@ export class MainScene extends Phaser.Scene {
   }
 
   private nearRoad(x: number, y: number, padding: number): boolean {
-    const onH = (ry: number) => Math.abs(y - ry) < padding && x > -520 && x < 420;
-    const onV = (rx: number, y1: number, y2: number) =>
-      Math.abs(x - rx) < padding && y > Math.min(y1, y2) - padding && y < Math.max(y1, y2) + padding;
-    return (
-      onH(-16) ||
-      onH(16) ||
-      onV(0, 60, RESTAURANT_DOOR.y) ||
-      onV(LUMBER_DOOR.x, -16, LUMBER_DOOR.y) ||
-      onV(PHONE_STORE_POS.x, 16, PHONE_STORE_POS.y - 30)
-    );
+    const segs = this.roadSegments();
+    const inSpan = (v: number, a: number, b: number, pad: number) =>
+      v > Math.min(a, b) - pad && v < Math.max(a, b) + pad;
+    for (const s of segs.h) {
+      if (Math.abs(y - s.y) < padding && inSpan(x, s.x1, s.x2, padding + 30)) return true;
+    }
+    for (const s of segs.v) {
+      if (Math.abs(x - s.x) < padding && inSpan(y, s.y1, s.y2, padding + 30)) return true;
+    }
+    for (const j of segs.j) {
+      if (Math.hypot(x - j.x, y - j.y) < padding + 28) return true;
+    }
+    return false;
   }
 
   private drawWorldFence(): void {

@@ -45,8 +45,8 @@ function makeForestTrees(): ForestState["trees"] {
   const forestArea = AREAS.find((a) => a.kind === "forest")!;
   const points = generateForestTrees(forestArea.bounds, {
     seed: 20260908,
-    count: 26,
-    minDistance: 68,
+    count: 24,
+    minDistance: 95,
     clusters: 3,
   });
   return points.map((p, i) =>

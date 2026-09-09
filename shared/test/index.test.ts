@@ -26,8 +26,13 @@ describe("areaAt", () => {
   });
 
   it("finds the forest area", () => {
-    const area = areaAt({ x: 650, y: -500 });
+    const area = areaAt({ x: 800, y: -750 });
     expect(area?.kind).toBe("forest");
+  });
+
+  it("finds the town past the forest", () => {
+    const area = areaAt({ x: 1150, y: -1150 });
+    expect(area?.kind).toBe("town");
   });
 
   it("returns undefined outside any area", () => {

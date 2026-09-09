@@ -5,7 +5,8 @@ export type AreaKind =
   | "forest"
   | "lumberYard"
   | "restaurant"
-  | "phoneStore";
+  | "phoneStore"
+  | "town";
 
 export interface Area {
   id: string;
@@ -15,10 +16,10 @@ export interface Area {
 }
 
 export const WORLD_BOUNDS: Rect = {
-  x: -900,
-  y: -700,
-  width: 1800,
-  height: 1400,
+  x: -1500,
+  y: -1300,
+  width: 3000,
+  height: 2600,
 };
 
 export const AREAS: Area[] = [
@@ -32,25 +33,31 @@ export const AREAS: Area[] = [
     id: "forest",
     kind: "forest",
     label: "树林",
-    bounds: { x: 480, y: -680, width: 380, height: 320 },
+    bounds: { x: 640, y: -980, width: 560, height: 440 },
+  },
+  {
+    id: "town",
+    kind: "town",
+    label: "小镇",
+    bounds: { x: 980, y: -1270, width: 420, height: 260 },
   },
   {
     id: "lumber-yard",
     kind: "lumberYard",
     label: "木材店",
-    bounds: { x: -480, y: -200, width: 160, height: 120 },
+    bounds: { x: -820, y: -260, width: 180, height: 140 },
   },
   {
     id: "restaurant",
     kind: "restaurant",
     label: "餐厅",
-    bounds: { x: -120, y: 260, width: 240, height: 140 },
+    bounds: { x: -140, y: 420, width: 280, height: 170 },
   },
   {
     id: "phone-store",
     kind: "phoneStore",
     label: "手机店",
-    bounds: { x: 260, y: 300, width: 160, height: 100 },
+    bounds: { x: 380, y: 440, width: 180, height: 120 },
   },
 ];
 

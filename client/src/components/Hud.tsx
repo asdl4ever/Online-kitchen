@@ -8,6 +8,7 @@ const AREA_EMOJI: Record<string, string> = {
   木材店: "🪵",
   餐厅: "🍽️",
   手机店: "📱",
+  小镇: "🏡",
   野外地带: "🌾",
 };
 
