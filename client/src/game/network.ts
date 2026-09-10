@@ -16,15 +16,24 @@ export type NetworkEvent =
 
 type Listener = (event: NetworkEvent) => void;
 
-const WS_URL =
-  import.meta.env.VITE_WS_URL || "ws://localhost:3001";
+function resolveWsUrl(): string {
+  const env = import.meta.env.VITE_WS_URL;
+  if (env) return env;
+  if (location.protocol === "https:") {
+    return `wss://${location.host}`;
+  }
+  return `ws://${location.hostname}:3001`;
+}
 
 export class Network {
   private ws: WebSocket | null = null;
   private listeners = new Set<Listener>();
   private _playerId: string | null = null;
   private _roomCode: string | null = null;
+  private _playerName: string | null = null;
   private _connected = false;
+  private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private _intentionalClose = false;
 
   get playerId(): string | null { return this._playerId; }
   get roomCode(): string | null { return this._roomCode; }
@@ -41,11 +50,14 @@ export class Network {
 
   connect(): void {
     if (this.ws) return;
-    const ws = new WebSocket(WS_URL);
+    const url = resolveWsUrl();
+    console.log("[network] connecting to", url);
+    const ws = new WebSocket(url);
     this.ws = ws;
 
     ws.onopen = () => {
       this._connected = true;
+      console.log("[network] connected");
     };
 
     ws.onmessage = (ev) => {
@@ -62,8 +74,8 @@ export class Network {
           this.emit({
             type: "room-joined",
             code: this._roomCode,
-            players: (p?.players as { id: string; name: string }[] ?? []).map((pp) => ({
-              id: pp.id, name: pp.name, x: 0, y: 0,
+            players: (p?.players as { id: string; name: string; x?: number; y?: number }[] ?? []).map((pp) => ({
+              id: pp.id, name: pp.name, x: pp.x ?? 0, y: pp.y ?? 0,
             })),
             hostId: String(p?.hostId ?? ""),
             you: String(p?.you ?? ""),
@@ -83,18 +95,37 @@ export class Network {
           this.emit({ type: "player-moved", id: String(p?.id ?? ""), x: Number(p?.x ?? 0), y: Number(p?.y ?? 0) });
           break;
         case "error":
+          console.warn("[network] server error:", p?.message);
           this.emit({ type: "error", message: String(p?.message ?? "unknown") });
           break;
       }
     };
 
     ws.onclose = () => {
+      console.log("[network] disconnected");
       this._connected = false;
       this.ws = null;
+      const prevRoom = this._roomCode;
       this._roomCode = null;
+      if (!this._intentionalClose && prevRoom && this._playerName) {
+        console.log("[network] reconnecting in 2s...");
+        this._reconnectTimer = setTimeout(() => {
+          this._reconnectTimer = null;
+          this.connect();
+          const waitRejoin = () => {
+            if (this.ws?.readyState === WebSocket.OPEN) {
+              this.send("join-room", { code: prevRoom, name: this._playerName });
+            } else {
+              setTimeout(waitRejoin, 100);
+            }
+          };
+          waitRejoin();
+        }, 2000);
+      }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (ev) => {
+      console.error("[network] WebSocket error:", ev);
       this._connected = false;
     };
   }
@@ -106,6 +137,8 @@ export class Network {
   }
 
   createRoom(name: string): void {
+    this._playerName = name;
+    this._intentionalClose = false;
     this.connect();
     const waitOpen = () => {
       if (this.ws?.readyState === WebSocket.OPEN) {
@@ -118,6 +151,8 @@ export class Network {
   }
 
   joinRoom(code: string, name: string): void {
+    this._playerName = name;
+    this._intentionalClose = false;
     this.connect();
     const waitOpen = () => {
       if (this.ws?.readyState === WebSocket.OPEN) {
@@ -130,6 +165,11 @@ export class Network {
   }
 
   leaveRoom(): void {
+    this._intentionalClose = true;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
     this.send("leave-room");
   }
 
@@ -138,6 +178,7 @@ export class Network {
   }
 
   disconnect(): void {
+    this._intentionalClose = true;
     this.ws?.close();
     this.ws = null;
     this._connected = false;

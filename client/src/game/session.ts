@@ -162,6 +162,7 @@ export class GameSession {
             roomCode: event.code,
             roomPlayers: event.players.filter((p) => p.id !== event.you),
             isHost: event.hostId === event.you,
+            multiplayerOpen: false,
           });
           this.bridge.showToast(`已加入房间 ${event.code}`, "🌐");
           break;
@@ -195,6 +196,7 @@ export class GameSession {
           if (rp) {
             rp.x = event.x;
             rp.y = event.y;
+            this.publishMultiplayerState();
           }
           break;
         }
@@ -1028,11 +1030,9 @@ export class GameSession {
         break;
       case "mp-create-room":
         this.network.createRoom(c.name);
-        this.bridge.patch({ multiplayerOpen: false });
         break;
       case "mp-join-room":
         this.network.joinRoom(c.code, c.name);
-        this.bridge.patch({ multiplayerOpen: false });
         break;
       case "mp-leave-room":
         this.network.leaveRoom();

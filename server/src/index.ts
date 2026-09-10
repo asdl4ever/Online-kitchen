@@ -78,6 +78,8 @@ wss.on("connection", (socket) => {
           players: room.players.map((id) => ({
             id,
             name: room.names.get(id) ?? id.slice(0, 6),
+            x: room.positions.get(id)?.x ?? 0,
+            y: room.positions.get(id)?.y ?? 0,
           })),
           hostId: room.hostId,
           you: playerId,
@@ -100,6 +102,8 @@ wss.on("connection", (socket) => {
             players: room.players.map((id) => ({
               id,
               name: room.names.get(id) ?? id.slice(0, 6),
+              x: room.positions.get(id)?.x ?? 0,
+              y: room.positions.get(id)?.y ?? 0,
             })),
             hostId: room.hostId,
             you: playerId,
