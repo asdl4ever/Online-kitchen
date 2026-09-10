@@ -20,11 +20,18 @@ const server = createServer((req, res) => {
     res.end(JSON.stringify({ status: "ok", rooms: manager.size }));
     return;
   }
-  res.writeHead(404);
-  res.end();
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Online Kitchen WebSocket Server");
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ noServer: true });
+
+server.on("upgrade", (req, socket, head) => {
+  console.log(`[server] upgrade request: ${req.url}`);
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req);
+  });
+});
 
 function send(socket: WebSocket, type: string, payload: unknown): void {
   if (socket.readyState === socket.OPEN) {
@@ -49,9 +56,10 @@ function errorOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-wss.on("connection", (socket) => {
+wss.on("connection", (socket, req) => {
   const playerId = randomUUID();
   clients.set(socket, { socket, playerId });
+  console.log(`[server] player connected: ${playerId} from ${req.socket.remoteAddress}`);
 
   send(socket, "welcome", { playerId });
 
@@ -172,9 +180,12 @@ wss.on("connection", (socket) => {
       manager.leaveRoom(info.roomCode, info.playerId);
     }
     clients.delete(socket);
+    console.log(`[server] player disconnected: ${playerId}`);
   });
 });
 
-console.log(`[server] listening on http://localhost:${PORT}`);
+console.log(`[server] listening on http://0.0.0.0:${PORT}`);
 console.log(`[server] max players per room: ${MAX_PLAYERS_PER_ROOM}`);
-server.listen(PORT);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`[server] server ready`);
+});
